@@ -1,5 +1,3 @@
-#include "z.h"
-#include <TroykaRTC.h>
 #include <TimerOne.h>
 #include <Thread.h>
 #include "Schedule.h"
@@ -36,6 +34,7 @@ void timer1_action() {
 void setup()
 {
 
+
 //	timeThread.onRun( getTime );
 //  timeThread.setInterval(90);
 
@@ -53,6 +52,11 @@ void setup()
 
 	Timer1.initialize(10000);
 	Timer1.attachInterrupt(timer1_action);
+
+	schedule.addTask(Schedule::TYPE::EveryDay, "10:00");
+	schedule.addTask(Schedule::TYPE::EveryDay, "ПН ВТ ЧТ, 10:12:30");
+	schedule.addTask(Schedule::TYPE::EveryWeek, "ПН ВТ ЧТ, 10:12:30");
+	schedule.addTask(Schedule::TYPE::EveryWeek, "10:14:30");
 }
 
 void loop()
