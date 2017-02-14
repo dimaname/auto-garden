@@ -33,12 +33,18 @@ private:
 
 	public:
 		vector<int> weekdays;
+		int hour;
+		int minute;
+		int second;
 		Schedule::TYPE type;
 
-		ScheduleItem(Schedule::TYPE _type, vector<int> _weekdays, void(*_callback)()) {
+		ScheduleItem(Schedule::TYPE _type, vector<int> _weekdays, int _hour, int _minute, int _second, void(*_callback)()) {
 			type = _type;
 			callback = _callback;
 			weekdays = _weekdays;
+			hour = _hour;
+			minute = _minute;
+			second = _second;
 			prevFirePeriodWas = -1;
 		}
 
@@ -52,19 +58,22 @@ private:
 			switch (type)
 			{
 			case Schedule::EveryDay:
-				isCanFire = prevFirePeriodWas != Schedule::weekday;
-				this->prevFirePeriodWas = Schedule::weekday;
-				break;
-			case Schedule::EveryWeek:
-				if (find(this->weekdays.begin(), this->weekdays.end(), Schedule::weekday) != this->weekdays.end()) {
+				if (this->hour == Schedule::hour && this->minute == Schedule::minute && this->second == Schedule::second) {
 					isCanFire = prevFirePeriodWas != Schedule::weekday;
 					this->prevFirePeriodWas = Schedule::weekday;
+				}			
+				break;
+			case Schedule::EveryWeek:
+				if (this->hour == Schedule::hour && this->minute == Schedule::minute && this->second == Schedule::second) {
+					if (find(this->weekdays.begin(), this->weekdays.end(), Schedule::weekday) != this->weekdays.end()) {
+						isCanFire = prevFirePeriodWas != Schedule::weekday;
+						this->prevFirePeriodWas = Schedule::weekday;
+					}
 				}
 				break;
 			default:
 				break;
 			}
-
 			return isCanFire;
 		}
 
@@ -73,10 +82,13 @@ public:
 	RTC clock;
 	Schedule(RTC);
 	vector<int> daysToArray(String);
+	vector<int>  parseTime(String);
 	int nameOfDayToNumber(String);
-	char time[LEN_TIME] = { 0 };
-	char date[LEN_DATE] = { 0 };
+
 	static int weekday;
+	static int hour;
+	static int minute;
+	static int second;
 
 	void tact();
 	void addTask(String, void());
