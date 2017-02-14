@@ -19,7 +19,11 @@
 
 	};
 
-	void Schedule::addTask(Schedule::TYPE type, String timestamp) {	
+	void Schedule::addTask( String timestamp, void callback()) {	
+		
+		
+		Schedule::TYPE type = Schedule::TYPE::EveryDay;
+		callback();
 		switch (type) {
 		case Schedule::TYPE::EveryDay:
 			Serial.print(" EveryDay ... ");
