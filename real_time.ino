@@ -1,8 +1,8 @@
-#include <SimpleTimer.h>
+
 #include <TimerOne.h>
 #include <Thread.h>
 #include "Schedule.h"
-
+#include <functional>
 Thread timeThread = Thread(); 
 Thread printThread = Thread();
 
@@ -15,7 +15,6 @@ RTC clock;
 Schedule schedule(clock);
 
 
-SimpleTimer timer;
 void printTime() {
 
 	Serial.println(String(schedule.hour) + ":"+ String(schedule.minute)+":"+ String(schedule.second));
@@ -30,7 +29,6 @@ void timer1_action() {
 
 void onLamp() {
 	digitalWrite(RELAY_PIN, HIGH);
-	timer.setTimeout(1000, offLamp);
 	Serial.println(" onLamp");
 }
 void offLamp() {
@@ -55,10 +53,13 @@ void setup()
 	// метод установки времени и даты автоматически при компиляции
 	clock.set(__TIMESTAMP__);
 
-	timer.setInterval(2000, onLamp);
+	
 
 	Timer1.initialize(10000);
 	Timer1.attachInterrupt(timer1_action);
+
+	schedule.addTask("01:12", onLamp);
+	schedule.addTask("01:12:30", offLamp);
 
 	schedule.addTask("00:09", pumpOff);
 	schedule.addTask("MO TU WE TH FR SA SU, 00:08:50", pumpOn);
@@ -75,7 +76,7 @@ void pumpOff() {
 }
 void loop()
 {
-	timer.run();
+	
 				
 	if (printThread.shouldRun())
 		printThread.run(); // запускаем поток
