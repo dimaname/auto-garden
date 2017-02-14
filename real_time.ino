@@ -17,12 +17,15 @@ Schedule schedule(clock);
 
 void printTime() {
 	// выводим в serial порт текущее время, дату и день недели
-	Serial.print(schedule.time);
-	Serial.print(" -- ");
-	Serial.print(schedule.date);
-	Serial.print(" -- ");
-	Serial.println(schedule.weekday);
+//	Serial.print(schedule.time);
+//	Serial.print(" -- ");
+//	Serial.print(schedule.date);
+//	Serial.print(" -- ");
+	//Serial.println(schedule.weekday);
 
+
+		Serial.println("items.size:  " + String(schedule.items.size() ) );
+	
 }
 
 void timer1_action() {		
@@ -53,8 +56,8 @@ void setup()
 	Timer1.initialize(10000);
 	Timer1.attachInterrupt(timer1_action);
 
-	//schedule.addTask("10:00", pumpOn);
-	schedule.addTask("ПН ВТ ЧТ, 10:12:30", pumpOn);
+	schedule.addTask("10:00", pumpOn);
+	schedule.addTask("MO TU WE TH FR SA SU, 10:12:30", pumpOn);
 	//schedule.addTask("ПН ВТ ЧТ, 10:12:30");
 	//schedule.addTask("10:14:30");
 
