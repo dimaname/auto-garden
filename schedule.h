@@ -42,7 +42,7 @@ public:
 	char weekday[LEN_DOW] = { 0 };
 
 	void tact();
-	void addTask(TYPE, String);
+	void addTask(String, void());
 
 
 };

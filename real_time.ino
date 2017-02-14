@@ -53,10 +53,17 @@ void setup()
 	Timer1.initialize(10000);
 	Timer1.attachInterrupt(timer1_action);
 
-	schedule.addTask(Schedule::TYPE::EveryDay, "10:00");
-	schedule.addTask(Schedule::TYPE::EveryDay, "ПН ВТ ЧТ, 10:12:30");
-	schedule.addTask(Schedule::TYPE::EveryWeek, "ПН ВТ ЧТ, 10:12:30");
-	schedule.addTask(Schedule::TYPE::EveryWeek, "10:14:30");
+	//schedule.addTask("10:00", pumpOn);
+	schedule.addTask("ПН ВТ ЧТ, 10:12:30", pumpOn);
+	//schedule.addTask("ПН ВТ ЧТ, 10:12:30");
+	//schedule.addTask("10:14:30");
+
+
+
+}
+
+void pumpOn() {
+	Serial.println(" pumpOn ");
 }
 
 void loop()
