@@ -3,13 +3,13 @@
 #include <Thread.h>
 #include "Schedule.h"
 #include <functional>
-Thread timeThread = Thread(); 
+Thread waterThread = Thread();
 Thread printThread = Thread();
 
 
 
 #define RELAY_PIN 25
-
+#define WATER_PIN 18
 // создаём объект для работы с часами реального времени
 RTC clock;
 Schedule schedule(clock);
@@ -35,12 +35,33 @@ void offLamp() {
 	digitalWrite(RELAY_PIN, LOW);	
 	Serial.println(" offLamp");
 }
+
+
+volatile int NbTopsFan; 
+void rpm(){  
+	NbTopsFan++;  
+	Serial.println("NbTopsFan: "+String(NbTopsFan) );
+}
+double totalWater = 0;
+unsigned long prevCallTime =0;
+
+void calcWater() {
+	cli();
+	double litersPerSec = NbTopsFan* (1000.0 / (millis() - prevCallTime)) /4.5/60;
+	prevCallTime = millis();
+	NbTopsFan = 0;
+	totalWater += litersPerSec;
+	Serial.println( "litersPerSec: "+String(litersPerSec)+"      totalWater: "+ String(totalWater));
+	sei();
+}
+
 void setup()
 {
+	pinMode(WATER_PIN, INPUT);
 	pinMode(RELAY_PIN, OUTPUT);
-
-//	timeThread.onRun( getTime );
-//  timeThread.setInterval(90);
+	attachInterrupt(5, rpm, RISING);
+	waterThread.onRun( calcWater );
+	waterThread.setInterval(1000);
 
 	printThread.onRun( printTime );
 	printThread.setInterval(1000);
@@ -76,10 +97,11 @@ void pumpOff() {
 }
 void loop()
 {
-	
-				
 	if (printThread.shouldRun())
 		printThread.run(); // запускаем поток
+				
+	if (waterThread.shouldRun())
+		waterThread.run(); // запускаем поток
 
 
 
