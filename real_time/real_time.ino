@@ -1,8 +1,14 @@
+#include "LcdContent.h"
+#include <SimpleTimer.h>
 #include <DHT.h>
 #include <TimerOne.h>
 #include <Thread.h>
 #include "Schedule.h"
 #include <functional>
+#include <LiquidCrystal.h>
+
+
+
 Thread waterThread = Thread();
 Thread printThread = Thread();
 Thread threadEvery5s = Thread();
@@ -13,6 +19,11 @@ Thread threadEvery5s = Thread();
 #define BEEP_PIN 22
 #define DH11_PIN A0
 #define WATER_LEVEL_PIN A1
+
+LiquidCrystal LCD16x2(4, 5, 10, 11, 12, 13);
+LcdContent lcdContent = LcdContent();
+SimpleTimer lcdIntroTimer;
+
 // создаём объект для работы с часами реального времени
 RTC clock;
 Schedule schedule(clock);
@@ -43,8 +54,15 @@ void printTime() {
 
 	Serial.print(String(schedule.hour) + ":" + String(schedule.minute) + ":" + String(schedule.second));
 	Serial.println("\tTemperature: " + String(lastDH11_Temperature) + "C, Humidity: " + String(lastDH11_Humidity) + "%");
-
-
+	String addSpaceT = "", addSpaceH ="";
+	if (lastDH11_Temperature < 10) {
+		addSpaceT = " ";
+	}
+	if (lastDH11_Humidity < 10) {
+		addSpaceH = " ";
+	}
+	lcdContent.set(String(schedule.timeStr)+" "+ addSpaceT+String(lastDH11_Temperature) +"\xb0 "+ addSpaceH + String(lastDH11_Humidity)+"%", 
+				   String(""), LcdContent::NORMAL);
 	//	Serial.println("items.size:  " + String(schedule.items.size() ) );
 
 }
@@ -120,6 +138,8 @@ void setup()
 	pinMode(RELAY_PIN, OUTPUT);
 	pinMode(WATER_LEVEL_PIN, INPUT_PULLUP);
 	dh11.begin();
+
+	
 //	tone1.begin(BEEP_PIN);
 
 //	attachInterrupt(5, rpm, RISING);
@@ -140,11 +160,15 @@ void setup()
 	// метод установки времени и даты автоматически при компиляции
 	clock.set(__TIMESTAMP__);
 
-
+	LCD16x2.begin(16, 2);
+	LCD16x2.command(0b101010);
+	lcdIntroTimer.setTimeout(5000, stopIntro );
+	lcdContent.set("     \xcf\xd0\xc8\xc2\xc5\xd2\x2c",
+				   "\xc3\xce\xd2\xce\xc2\xc0 \xca \xd0\xc0\xc1\xce\xd2\xc5\x90", LcdContent::INTRO);
 
 	Timer1.initialize(10000);
 	Timer1.attachInterrupt(timer1_action);
-
+	
 	schedule.addTask("01:12", onLamp);
 	schedule.addTask("01:12:30", offLamp);
 
@@ -154,16 +178,6 @@ void setup()
 	pumpOff();
 
 }
-
-void pumpOn() {
-	digitalWrite(RELAY_PIN, HIGH);
-	Serial.println("  Everyday pumpOn");
-}
-void pumpOff() {
-	digitalWrite(RELAY_PIN, LOW);
-	Serial.println("  pumpOn2 pumpOff");
-}
-
 
 
 void loop()
@@ -177,8 +191,41 @@ void loop()
 
 	if (threadEvery5s.shouldRun())
 		threadEvery5s.run(); // запускаем поток
+
+	
+	lcdRunner();
+
 //	tone(22, 2000, 500);
 	//tone1.play(NOTE_B2,1000);
 
 }
 
+
+
+void pumpOn() {
+	digitalWrite(RELAY_PIN, HIGH);
+	Serial.println("  Everyday pumpOn");
+}
+void pumpOff() {
+	digitalWrite(RELAY_PIN, LOW);
+	Serial.println("  pumpOn2 pumpOff");
+}
+
+void stopIntro() {
+	LCD16x2.clear();
+	lcdContent.Mode = LcdContent::NORMAL;
+}
+
+void lcdRunner() {
+	lcdIntroTimer.run();
+	if (lcdContent.hasNew) {
+		lcdContent.hasNew = false;	
+		LCD16x2.setCursor(0, 0);
+		LCD16x2.print(lcdContent.FirstRow);
+		LCD16x2.setCursor(0, 1);
+		LCD16x2.print(lcdContent.SecondRow);
+
+	}
+	
+
+}

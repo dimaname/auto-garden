@@ -4,8 +4,7 @@
 
 // размер массива для времени с учётом завершающего нуля
 #define LEN_TIME 12
-// размер массива для даты с учётом завершающего нуля
-#define LEN_DATE 12
+
 
 #include <Wire.h>
 #include <EEPROM.h>
@@ -89,6 +88,7 @@ public:
 	static int hour;
 	static int minute;
 	static int second;
+	static char timeStr[LEN_TIME];
 
 	void tact();
 	void addTask(String, void());

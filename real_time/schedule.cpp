@@ -12,7 +12,7 @@ int Schedule::weekday = 0;
 int Schedule::hour = 0;
 int Schedule::minute = 0;
 int Schedule::second = 0;
-
+char Schedule::timeStr[LEN_TIME] = { 0 };
 void Schedule::tact() {
 	sei();
 	clock.read();
@@ -20,6 +20,7 @@ void Schedule::tact() {
 	Schedule::hour = clock.getHour();
 	Schedule::minute = clock.getMinute();
 	Schedule::second = clock.getSecond();
+	clock.getTimeStr(timeStr, LEN_TIME);	
 	checkTasks();
 	cli();
 };
