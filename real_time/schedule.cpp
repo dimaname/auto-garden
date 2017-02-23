@@ -67,7 +67,7 @@ int Schedule::addTask(String timeplan, void callback()) {
 
 
 
-String Schedule::timeLeftFor(int taskId) {
+unsigned long Schedule::timeLeftFor(int taskId) {
 
 	ScheduleItem task = items.at(taskId);
 	int minDistanceDays = 7;
@@ -75,18 +75,24 @@ String Schedule::timeLeftFor(int taskId) {
 	unsigned long  secondBeforeTask = task.hour * 3600L + task.minute * 60L + task.second;
 	unsigned long  secondBeforeNow = Schedule::hour * 3600L + Schedule::minute * 60L + Schedule::second;
 	bool isFireToday = secondBeforeNow >= secondBeforeTask;
-
-	for (std::vector<int>::iterator it = task.weekdays.begin(); it != task.weekdays.end(); ++it) {
-		int dist = *it - weekday;
-		dist = dist < 0 ? dist + 7 : dist;
-		if (dist == 0 && isFireToday) {
-			dist = minDistanceDays;
+	switch (task.type)
+	{
+	case Schedule::EveryWeek:
+		for (std::vector<int>::iterator it = task.weekdays.begin(); it != task.weekdays.end(); ++it) {
+			int dist = *it - weekday;
+			dist = dist < 0 ? dist + 7 : dist;
+			if (dist == 0 && isFireToday) {
+				dist = minDistanceDays;
+			}
+			if (dist < minDistanceDays) {
+				minDistanceDays = dist;
+			}
 		}
-		if (dist < minDistanceDays) {
-			minDistanceDays = dist;
-		}
+		break;
+	case Schedule::EveryDay: 
+		minDistanceDays = isFireToday ? 1 : 0;
+		break;
 	}
-
 	unsigned long distance_in_second = 0;
 
 	if (minDistanceDays == 0) {
@@ -95,26 +101,8 @@ String Schedule::timeLeftFor(int taskId) {
 	else {
 		distance_in_second = SECONDS_IN_DAY*(minDistanceDays - 1) + SECONDS_IN_DAY - secondBeforeNow + secondBeforeTask;
 
-	}
-	int s = distance_in_second % 60;
-	distance_in_second /= 60;
-	int m = distance_in_second % 60;
-	distance_in_second /= 60;
-	int h = distance_in_second % 24;
-	distance_in_second /= 24;
-	int d = distance_in_second;
-	Serial.println("d: " + String(d) + "  h:" + String(h) + "  m:" + String(m) + +"  s:" + String(s));
-
-	String result = String();
-	String addSpaces = "       ";
-	result = (d > 0 ? String(d) + "\xe4 " : "") +  (h > 0 || d > 0 ? String(h) + "\xf7" : "") + (m > 0 && h == 0 && d == 0 ? String(m) + "\xec " : "") + (m == 0 && h == 0 && d == 0 ? String(s) + "\xf1 " : "") ;
-	
-	if ((int)7 - (int)result.length() > 0) {	
-		result = addSpaces.substring(0, 7 - result.length()) + result;
-	}
-	
-	Serial.println("result" + String(result));
-	return String(result);
+	}	
+	return distance_in_second;
 
 }
 

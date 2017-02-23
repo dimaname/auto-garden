@@ -93,7 +93,7 @@ public:
 	
 	void tact();
 	int addTask(String, void());
-	String timeLeftFor(int);
+	unsigned long timeLeftFor(int);
 	void Schedule::checkTasks();
 	vector<ScheduleItem> items;
 };
