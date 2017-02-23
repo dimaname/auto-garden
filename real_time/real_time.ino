@@ -45,14 +45,16 @@ int durations[COUNT_NOTES] = {
 	150, 350, 250, 100, 100, 100, 450,
 	150, 350, 250, 100, 750
 };
-volatile int  lastDH11_Temperature = 0;
-volatile int  lastDH11_Humidity = 0;
+volatile int lastDH11_Temperature = 0;
+volatile int lastDH11_Humidity = 0;
 volatile int waterLevel_1 = 0;
+
+int taskWateringId;
 
 void printTime() {
 
 
-	Serial.print(String(schedule.hour) + ":" + String(schedule.minute) + ":" + String(schedule.second));
+	Serial.print(schedule.timeStr);
 	Serial.println("\tTemperature: " + String(lastDH11_Temperature) + "C, Humidity: " + String(lastDH11_Humidity) + "%");
 	String addSpaceT = "", addSpaceH ="";
 	if (lastDH11_Temperature < 10) {
@@ -62,8 +64,10 @@ void printTime() {
 		addSpaceH = " ";
 	}
 	lcdContent.set(String(schedule.timeStr)+" "+ addSpaceT+String(lastDH11_Temperature) +"\xb0 "+ addSpaceH + String(lastDH11_Humidity)+"%", 
-				   String(""), LcdContent::NORMAL);
-	//	Serial.println("items.size:  " + String(schedule.items.size() ) );
+				   String("         "+schedule.timeLeftFor(taskWateringId)), LcdContent::NORMAL);
+	
+	
+	
 
 }
 
@@ -132,6 +136,8 @@ void calcWater() {
 	sei();
 }
 
+
+
 void setup()
 {
 	pinMode(WATER_PIN, INPUT);
@@ -173,7 +179,7 @@ void setup()
 	schedule.addTask("01:12:30", offLamp);
 
 	schedule.addTask("00:09", pumpOff);
-	schedule.addTask("MO TU WE TH FR SA SU, 00:08:50", pumpOn);
+	taskWateringId = schedule.addTask("MO TU WE TH  FR SA SU, 15:32:00", pumpOn);
 
 	pumpOff();
 

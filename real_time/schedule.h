@@ -4,6 +4,7 @@
 
 // размер массива для времени с учётом завершающего нуля
 #define LEN_TIME 12
+#define SECONDS_IN_DAY 86400L
 
 
 #include <Wire.h>
@@ -26,8 +27,7 @@ private:
 
 
 	class ScheduleItem {
-	private:
-		int prevFirePeriodWas;
+	private:	
 		void(*callback)();
 
 	public:
@@ -35,6 +35,8 @@ private:
 		int hour;
 		int minute;
 		int second;
+		int prevFirePeriodWas;
+			
 		Schedule::TYPE type;
 
 		ScheduleItem(Schedule::TYPE _type, vector<int> _weekdays, int _hour, int _minute, int _second, void(*_callback)()) {
@@ -48,6 +50,7 @@ private:
 		}
 
 		void fire() {
+			this->prevFirePeriodWas = Schedule::weekday;
 			this->callback();
 		}
 
@@ -58,15 +61,13 @@ private:
 			{
 			case Schedule::EveryDay:
 				if (this->hour == Schedule::hour && this->minute == Schedule::minute && this->second == Schedule::second) {
-					isCanFire = prevFirePeriodWas != Schedule::weekday;
-					this->prevFirePeriodWas = Schedule::weekday;
+					isCanFire = prevFirePeriodWas != Schedule::weekday;			
 				}			
 				break;
 			case Schedule::EveryWeek:
 				if (this->hour == Schedule::hour && this->minute == Schedule::minute && this->second == Schedule::second) {
 					if (find(this->weekdays.begin(), this->weekdays.end(), Schedule::weekday) != this->weekdays.end()) {
-						isCanFire = prevFirePeriodWas != Schedule::weekday;
-						this->prevFirePeriodWas = Schedule::weekday;
+						isCanFire = prevFirePeriodWas != Schedule::weekday;					
 					}
 				}
 				break;
@@ -89,9 +90,10 @@ public:
 	static int minute;
 	static int second;
 	static char timeStr[LEN_TIME];
-
+	
 	void tact();
-	void addTask(String, void());
+	int addTask(String, void());
+	String timeLeftFor(int);
 	void Schedule::checkTasks();
 	vector<ScheduleItem> items;
 };

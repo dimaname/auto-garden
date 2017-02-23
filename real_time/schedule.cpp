@@ -20,7 +20,7 @@ void Schedule::tact() {
 	Schedule::hour = clock.getHour();
 	Schedule::minute = clock.getMinute();
 	Schedule::second = clock.getSecond();
-	clock.getTimeStr(timeStr, LEN_TIME);	
+	clock.getTimeStr(timeStr, LEN_TIME);
 	checkTasks();
 	cli();
 };
@@ -36,7 +36,7 @@ void Schedule::checkTasks() {
 	}
 };
 
-void Schedule::addTask(String timeplan, void callback()) {
+int Schedule::addTask(String timeplan, void callback()) {
 
 
 	Schedule::TYPE type;
@@ -45,7 +45,7 @@ void Schedule::addTask(String timeplan, void callback()) {
 	int comPos = timeplan.indexOf(",");
 	String weekDayPart, timePart;
 	vector<int> daysOfWeekVector;
-	
+
 	if (comPos == -1) {
 		type = Schedule::TYPE::EveryDay;
 		timePart = timeplan;
@@ -58,11 +58,65 @@ void Schedule::addTask(String timeplan, void callback()) {
 		daysOfWeekVector = daysToArray(weekDayPart);
 		timePart.trim();
 	}
-	
-	vector<int> time = parseTime(timePart);	
-		
+
+	vector<int> time = parseTime(timePart);
+
 	items.push_back(ScheduleItem(type, daysOfWeekVector, time[0], time[1], time[2], callback));
+	return items.size() - 1;
 };
+
+
+
+String Schedule::timeLeftFor(int taskId) {
+
+	ScheduleItem task = items.at(taskId);
+	int minDistanceDays = 7;
+
+	unsigned long  secondBeforeTask = task.hour * 3600L + task.minute * 60L + task.second;
+	unsigned long  secondBeforeNow = Schedule::hour * 3600L + Schedule::minute * 60L + Schedule::second;
+	bool isFireToday = secondBeforeNow >= secondBeforeTask;
+
+	for (std::vector<int>::iterator it = task.weekdays.begin(); it != task.weekdays.end(); ++it) {
+		int dist = *it - weekday;
+		dist = dist < 0 ? dist + 7 : dist;
+		if (dist == 0 && isFireToday) {
+			dist = minDistanceDays;
+		}
+		if (dist < minDistanceDays) {
+			minDistanceDays = dist;
+		}
+	}
+
+	unsigned long distance_in_second = 0;
+
+	if (minDistanceDays == 0) {
+		distance_in_second = secondBeforeTask - secondBeforeNow;
+	}
+	else {
+		distance_in_second = SECONDS_IN_DAY*(minDistanceDays - 1) + SECONDS_IN_DAY - secondBeforeNow + secondBeforeTask;
+
+	}
+	int s = distance_in_second % 60;
+	distance_in_second /= 60;
+	int m = distance_in_second % 60;
+	distance_in_second /= 60;
+	int h = distance_in_second % 24;
+	distance_in_second /= 24;
+	int d = distance_in_second;
+	Serial.println("d: " + String(d) + "  h:" + String(h) + "  m:" + String(m) + +"  s:" + String(s));
+
+	String result = String();
+	String addSpaces = "       ";
+	result = (d > 0 ? String(d) + "\xe4 " : "") +  (h > 0 || d > 0 ? String(h) + "\xf7" : "") + (m > 0 && h == 0 && d == 0 ? String(m) + "\xec " : "") + (m == 0 && h == 0 && d == 0 ? String(s) + "\xf1 " : "") ;
+	
+	if ((int)7 - (int)result.length() > 0) {	
+		result = addSpaces.substring(0, 7 - result.length()) + result;
+	}
+	
+	Serial.println("result" + String(result));
+	return String(result);
+
+}
 
 vector<int> Schedule::daysToArray(String str) {
 	int startPos = 0;
@@ -75,6 +129,7 @@ vector<int> Schedule::daysToArray(String str) {
 		spacePos = str.indexOf(" ", startPos);
 	}
 	ret.push_back(nameOfDayToNumber(str.substring(startPos)));
+	sort(ret.begin(), ret.end());
 	return ret;
 }
 
@@ -93,6 +148,9 @@ vector<int> Schedule::parseTime(String str) {
 	ret.resize(3);
 	return ret;
 }
+
+
+
 
 int  Schedule::nameOfDayToNumber(String day) {
 	day.toUpperCase();
