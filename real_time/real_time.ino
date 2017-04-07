@@ -15,9 +15,9 @@ Thread threadEvery5s = Thread();
 
 
 #define RELAY_PIN 7
-#define WATER_PIN 18
-#define BEEP_PIN 22
-#define DH11_PIN A0
+#define WATER_FLOW_PIN 19
+#define BEEP_PIN 43
+#define DH11_PIN A8
 #define WATER_LEVEL_PIN A1
 #define PUMP_BTN_PIN 2
 
@@ -155,7 +155,7 @@ void setup()
 
 
 	////// датчик потока
-   // pinMode(WATER_PIN, INPUT);
+   // pinMode(WATER_FLOW_PIN, INPUT);
    // attachInterrupt(5, rpm, RISING);
    // waterThread.onRun( calcWater );
   //  waterThread.setInterval(1000);
