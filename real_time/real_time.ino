@@ -19,10 +19,12 @@ Thread threadEvery5s = Thread();
 
 #define RELAY_PIN 7
 #define WATER_FLOW_PIN 19
-#define WATER_LEVEL_PIN A1
+#define WATER_LEVEL_PIN A9
+#define WATER_LEVEL_2_PIN A10
 #define BEEP_PIN 43
 #define DH11_PIN A8
 #define PUMP_BTN_PIN 2
+#define LIGHT_SENSOR A15
 
 enum PUMP_STATES { WAITING, WORKING };
 PUMP_STATES pump_state = PUMP_STATES::WAITING;
@@ -66,6 +68,7 @@ void setup()
 	digitalWrite(RELAY_PIN, HIGH);
 	pinMode(RELAY_PIN, OUTPUT);
 	pinMode(WATER_LEVEL_PIN, INPUT_PULLUP);
+	pinMode(LIGHT_SENSOR, INPUT);
 	dh11.begin();
 
 	Timer1.initialize(1000000);
@@ -76,8 +79,6 @@ void setup()
    // pinMode(WATER_FLOW_PIN, INPUT);
    // attachInterrupt(5, rpm, RISING);
 	///////
-	
-
 	
 
 	threadEvery5s.onRun(threadEvery5sAction);
@@ -159,7 +160,8 @@ void loop()
 
 
 void threadEvery1sAction() {
-		
+	int raw = analogRead(LIGHT_SENSOR);
+	//Serial.println(" LIGHT_SENSOR: "+ String(raw));
 	//calcWater();
 }
 
@@ -195,7 +197,7 @@ void lcdContentBuilder() {
 
 	lcdContent.set(String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%",
 		String("    \xef\xf3\xf1\xea " + distanceFormat(schedule.timeLeftFor(taskWateringId))), LcdContent::NORMAL);
-	/*
+	
 	if (lcdContent.Mode == LcdContent::WATERING) {
 		unsigned long diff = (unsigned long)watering_internal - (millis() - pumpOnTimeStamp) / 1000L;
 		String animateframe = watering_animate[diff % 4];
@@ -203,7 +205,7 @@ void lcdContentBuilder() {
 		lcdContent.set(String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%",
 			String(" \xef\xee\xeb\xe8\xe2 " + animateframe + " " + distanceFormat(diff)), LcdContent::WATERING);
 
-	}*/
+	}
 	
 }
 
