@@ -60,13 +60,16 @@ volatile int lastDH11_Humidity = 0;
 
 void setup()
 {
+	Serial.begin(19200);
+	GSM.begin();
 
 	digitalWrite(RELAY_PIN, HIGH);
 	pinMode(RELAY_PIN, OUTPUT);
 	pinMode(WATER_LEVEL_PIN, INPUT_PULLUP);
 	dh11.begin();
 
-
+	Timer1.initialize(1000000);
+	Timer1.attachInterrupt(timer1_action);
 
 
 	////// датчик потока
@@ -75,8 +78,7 @@ void setup()
 	///////
 	
 
-	Serial.begin(19200);
-	GSM.begin();
+	
 
 	threadEvery5s.onRun(threadEvery5sAction);
 	threadEvery5s.setInterval(5000);
@@ -94,11 +96,11 @@ void setup()
 	LCD16x2.begin(16, 2);
 	LCD16x2.command(0b101010);
 	lcdIntroTimer.setTimeout(5000, stopIntro);
+	lcdIntroTimer.run();
 	lcdContent.set("     \xcf\xd0\xc8\xc2\xc5\xd2\x2c",
 		"\xc3\xce\xd2\xce\xc2\xc0 \xca \xd0\xc0\xc1\xce\xd2\xc5\x90", LcdContent::INTRO);
 
-	Timer1.initialize(10000);
-	Timer1.attachInterrupt(timer1_action);
+
 
 
 	// кнопки
@@ -128,7 +130,7 @@ void loop()
 	if (threadEvery5s.shouldRun())
 		threadEvery5s.run(); // запускаем поток
 
-	lcdRunner();
+	// lcdRunner();
 	pumpOffTimer.run();
 
 
@@ -157,16 +159,14 @@ void loop()
 
 
 void threadEvery1sAction() {
-	Serial.print(schedule.timeStr);
-	lcdContentBuilder();
-	checkIncomingSMS();
+		
 	//calcWater();
-	
 }
 
 
 
 void threadEvery5sAction() {
+	checkIncomingSMS();
 	lastDH11_Temperature = dh11.readHumidity();
 	lastDH11_Humidity = dh11.readTemperature();	
 	if (isnan(lastDH11_Temperature) || isnan(lastDH11_Humidity)) {
@@ -178,10 +178,12 @@ void threadEvery5sAction() {
 void timer1_action() {
 	schedule.tact();
 	checkWaterLevel();
+	Serial.print(schedule.timeStr);
+	lcdContentBuilder();
 }
 
 void lcdContentBuilder() {
-
+	
 	Serial.println("\tTemperature: " + String(lastDH11_Temperature) + "C, Humidity: " + String(lastDH11_Humidity) + "%");
 	String addSpaceT = "", addSpaceH = "";
 	if (lastDH11_Temperature < 10) {
@@ -193,7 +195,7 @@ void lcdContentBuilder() {
 
 	lcdContent.set(String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%",
 		String("    \xef\xf3\xf1\xea " + distanceFormat(schedule.timeLeftFor(taskWateringId))), LcdContent::NORMAL);
-	
+	/*
 	if (lcdContent.Mode == LcdContent::WATERING) {
 		unsigned long diff = (unsigned long)watering_internal - (millis() - pumpOnTimeStamp) / 1000L;
 		String animateframe = watering_animate[diff % 4];
@@ -201,7 +203,8 @@ void lcdContentBuilder() {
 		lcdContent.set(String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%",
 			String(" \xef\xee\xeb\xe8\xe2 " + animateframe + " " + distanceFormat(diff)), LcdContent::WATERING);
 
-	}
+	}*/
+	
 }
 
 void checkWaterLevel() {
@@ -292,7 +295,6 @@ void stopIntro() {
 }
 
 void lcdRunner() {
-	lcdIntroTimer.run();
 	if (lcdContent.hasNew) {
 		lcdContent.hasNew = false;
 		LCD16x2.setCursor(0, 0);
@@ -301,7 +303,6 @@ void lcdRunner() {
 		LCD16x2.print(lcdContent.SecondRow);
 
 	}
-
 
 }
 
@@ -349,9 +350,8 @@ String distanceFormat(unsigned long distance_in_second) {
 
 
 void checkIncomingSMS(){ 
-	//cli();
+	
 	String textSms = GSM.readSms(1); 
-
 	if (textSms && textSms.length()) {
 		String numberSms = GSM.getNumberSms(1);
 		Serial.println("numberSms: " + numberSms);
@@ -365,10 +365,8 @@ void checkIncomingSMS(){
 		else {
 			Serial.println("Not trusted number: " + numberSms);
 		}		
-	//	GSM.delAllSms();		
-	}	
-//	sei();
-
+		GSM.delAllSms();		
+	}		
 }
 
 void processSmsCommand(String smsText) {
@@ -409,5 +407,5 @@ int numberIndexInTrustedList(String number) {
 
 void sendMessage(char* message) {
 	Serial.println("Sending sms: " + String(TRUSTED_NUMBERS[lastHostNumberIndex])+"\r\n"+ message);
-//	GSM.sendSms(TRUSTED_NUMBERS[lastHostNumberIndex], message);
+	GSM.sendSms(TRUSTED_NUMBERS[lastHostNumberIndex], message);
 }
