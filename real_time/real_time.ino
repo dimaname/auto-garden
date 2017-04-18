@@ -17,23 +17,35 @@ Thread threadEvery1s = Thread();
 Thread threadEvery5s = Thread();
 
 
-#define RELAY_PIN 7
+#define RELAY1_PIN 34
+#define RELAY2_PIN 32
+#define RELAY3_PIN 30
+#define RELAY4_PIN 28
+
 #define WATER_FLOW_PIN 19
 #define WATER_LEVEL_PIN A9
 #define WATER_LEVEL_2_PIN A10
 #define BEEP_PIN 43
 #define DH11_PIN A8
 #define PUMP_BTN_PIN 2
-#define LIGHT_SENSOR A15
+#define LIGHT_SENSOR 36
+
+#define LCD_LIGHT_RED 35
+#define LCD_RS_ORANGE 33
+#define LCD_E_YELLOW 31
+#define LCD_D4_GREEN 29
+#define LCD_D5_BLUE 27
+#define LCD_D6_PUPRPLE 25
+#define LCD_D7_GRAY 23
 
 enum PUMP_STATES { WAITING, WORKING };
 PUMP_STATES pump_state = PUMP_STATES::WAITING;
 
-LiquidCrystal LCD16x2(4, 5, 22, 21, 12, 13);
+LiquidCrystal LCD16x2(LCD_RS_ORANGE, LCD_E_YELLOW, LCD_D4_GREEN, LCD_D5_BLUE, LCD_D6_PUPRPLE, LCD_D7_GRAY);
 LcdContent lcdContent = LcdContent();
-SimpleTimer lcdIntroTimer, pumpOffTimer;
+SimpleTimer lcdIntroTimer, lcdLightTimer, pumpOffTimer;
 
-int pumpOffTimerId;
+int pumpOffTimerId, lcdLightTimerId;
 unsigned long watering_internal = 30;   // время полива
 unsigned long pumpOnTimeStamp = 0;
 int taskWateringId;
@@ -65,10 +77,11 @@ void setup()
 	Serial.begin(19200);
 	GSM.begin();
 
-	digitalWrite(RELAY_PIN, HIGH);
-	pinMode(RELAY_PIN, OUTPUT);
+	digitalWrite(RELAY1_PIN, HIGH);
+	pinMode(RELAY1_PIN, OUTPUT);
 	pinMode(WATER_LEVEL_PIN, INPUT_PULLUP);
 	pinMode(LIGHT_SENSOR, INPUT);
+	pinMode(LCD_LIGHT_RED, OUTPUT);	
 	dh11.begin();
 
 	Timer1.initialize(1000000);
@@ -97,7 +110,7 @@ void setup()
 	LCD16x2.begin(16, 2);
 	LCD16x2.command(0b101010);
 	lcdIntroTimer.setTimeout(5000, stopIntro);
-	lcdIntroTimer.run();
+	lcdLightOn(15000);
 	lcdContent.set("     \xcf\xd0\xc8\xc2\xc5\xd2\x2c",
 		"\xc3\xce\xd2\xce\xc2\xc0 \xca \xd0\xc0\xc1\xce\xd2\xc5\x90", LcdContent::INTRO);
 
@@ -131,7 +144,7 @@ void loop()
 	if (threadEvery5s.shouldRun())
 		threadEvery5s.run(); // запускаем поток
 
-	// lcdRunner();
+
 	pumpOffTimer.run();
 
 
@@ -160,15 +173,16 @@ void loop()
 
 
 void threadEvery1sAction() {
-	int raw = analogRead(LIGHT_SENSOR);
-	//Serial.println(" LIGHT_SENSOR: "+ String(raw));
+
+	int raw = digitalRead(LIGHT_SENSOR);
+	Serial.println(" LIGHT_SENSOR: "+ String(raw));
 	//calcWater();
 }
 
 
 
 void threadEvery5sAction() {
-	checkIncomingSMS();
+	checkIncomingSMS();	
 	lastDH11_Temperature = dh11.readHumidity();
 	lastDH11_Humidity = dh11.readTemperature();	
 	if (isnan(lastDH11_Temperature) || isnan(lastDH11_Humidity)) {
@@ -182,6 +196,7 @@ void timer1_action() {
 	checkWaterLevel();
 	Serial.print(schedule.timeStr);
 	lcdContentBuilder();
+	lcdRunner();
 }
 
 void lcdContentBuilder() {
@@ -253,43 +268,55 @@ void calcWater() {
 
 void pumpOn() {
 	if (pump_state != PUMP_STATES::WORKING) {
-		if (waterLevel_1 == LOW) {
+		lcdLightOn(5000);
+
+		if (waterLevel_1 == LOW) {			
 			sendMessage("Warning! Can't start watering. No water.");
 			return;
-		}		
-		sendMessage("Watering start.");
+		}				
 		pump_state = PUMP_STATES::WORKING;
 		lcdContent.Mode = LcdContent::WATERING;
-		digitalWrite(RELAY_PIN, LOW);
+		digitalWrite(RELAY1_PIN, LOW);
 		pumpOnTimeStamp = millis();
 		pumpOffTimerId = pumpOffTimer.setTimeout((unsigned long)watering_internal * 1000L, pumpOff);
+		sendMessage("Watering start.");
 	}
 
 }
-void pumpOff() {
+void pumpOff() {	
 	pumpOffTimer.deleteTimer(pumpOffTimerId);
-
 	if (pump_state != PUMP_STATES::WAITING) {		
-		sendMessage("Watering finish.");
+		lcdLightOn(5000);
 		pump_state = PUMP_STATES::WAITING;
 		lcdContent.Mode = LcdContent::NORMAL;
-		digitalWrite(RELAY_PIN, HIGH);
+		digitalWrite(RELAY1_PIN, HIGH);
+		sendMessage("Watering finish.");
 	}
 
 }
 
 void pumpOffEmergency() {
 	pumpOffTimer.deleteTimer(pumpOffTimerId);
+	lcdLightOn(5000);
 	if (pump_state != PUMP_STATES::WAITING) {
 		sendMessage("Warning! Emergency stop watering. No water.");		
 		pump_state = PUMP_STATES::WAITING;
 		lcdContent.Mode = LcdContent::NORMAL;
-		digitalWrite(RELAY_PIN, HIGH);
+		digitalWrite(RELAY1_PIN, HIGH);
 	}		
 }
 
+void lcdLightOn(int timer) {
+	digitalWrite(LCD_LIGHT_RED, HIGH);
+	lcdLightTimer.deleteTimer(lcdLightTimerId);
+	lcdLightTimerId = lcdLightTimer.setTimeout(timer, lcdLightOff);
+}
 
-void stopIntro() {
+void lcdLightOff() {	
+	digitalWrite(LCD_LIGHT_RED, LOW);
+}
+
+void stopIntro() {	
 	LCD16x2.clear();
 	if (lcdContent.Mode == LcdContent::INTRO)
 		lcdContent.Mode = LcdContent::NORMAL;
@@ -297,6 +324,8 @@ void stopIntro() {
 }
 
 void lcdRunner() {
+	lcdIntroTimer.run();
+	lcdLightTimer.run();
 	if (lcdContent.hasNew) {
 		lcdContent.hasNew = false;
 		LCD16x2.setCursor(0, 0);
