@@ -11,7 +11,7 @@
 #include <SoftwareSerial.h>
 #include <Sim800l.h>
 
-Bounce bouncer = Bounce();
+
 
 Thread threadEvery1s = Thread();
 Thread threadEvery5s = Thread();
@@ -27,7 +27,6 @@ Thread threadEvery5s = Thread();
 #define WATER_LEVEL_2_PIN A10
 #define BEEP_PIN 43
 #define DH11_PIN A8
-#define PUMP_BTN_PIN 2
 #define LIGHT_SENSOR 36
 
 #define LCD_LIGHT_RED 35
@@ -37,6 +36,18 @@ Thread threadEvery5s = Thread();
 #define LCD_D5_BLUE 27
 #define LCD_D6_PUPRPLE 25
 #define LCD_D7_GRAY 23
+
+#define BUTTON_PUMP 38
+#define BUTTON_LIGHT 40
+#define BUTTON_3 42
+#define BUTTON_4 44
+
+#define DEBOUNCE 5 
+byte buttons[] = { BUTTON_PUMP, BUTTON_LIGHT, BUTTON_3, BUTTON_4 };
+#define NUMBUTTONS sizeof(buttons)
+byte pressed[NUMBUTTONS], justpressed[NUMBUTTONS], justreleased[NUMBUTTONS];
+byte previous_keystate[NUMBUTTONS], current_keystate[NUMBUTTONS];
+
 
 enum PUMP_STATES { WAITING, WORKING };
 PUMP_STATES pump_state = PUMP_STATES::WAITING;
@@ -118,12 +129,10 @@ void setup()
 
 
 	// кнопки
-
-	pinMode(PUMP_BTN_PIN, INPUT); // кнопка на пине 2
-	digitalWrite(PUMP_BTN_PIN, HIGH); // подключаем встроенный подтягивающий резистор
-	bouncer.attach(PUMP_BTN_PIN); // устанавливаем кнопку
-	bouncer.interval(5); // устанавливаем параметр stable interval = 5 мс
-
+	pinMode(BUTTON_PUMP, INPUT);
+	pinMode(BUTTON_LIGHT, INPUT);
+	pinMode(BUTTON_3, INPUT);
+	pinMode(BUTTON_4, INPUT);
 
 	/////
 
@@ -149,20 +158,22 @@ void loop()
 
 
 	// гасим дребезг контактов
-	if (bouncer.update())
+	byte pressedButton = getPressedButton();
+	switch (pressedButton)
 	{
-		if (bouncer.read() == 1)
-		{
-			switch (pump_state) {
-			case PUMP_STATES::WORKING:
-				pumpOff();
-				break;
-			case PUMP_STATES::WAITING:
-				pumpOn();
-				break;
-			}
-		}
-
+	case 0:		
+		tone(BEEP_PIN, 5000, 200);
+		Serial.println("switch 1 just pressed"); break;
+	case 1:
+		tone(BEEP_PIN, 4000, 200);
+		Serial.println("switch 2 just pressed"); break;
+	case 2:
+		tone(BEEP_PIN, 3000, 200);
+		Serial.println("switch 3 just pressed"); break;
+	case 3:
+		tone(BEEP_PIN, 2000, 200);
+		Serial.println("switch 4 just pressed"); break;
+	
 	}
 
 
@@ -434,6 +445,55 @@ int numberIndexInTrustedList(String number) {
 	}
 	return result;
 };
+
+
+
+void checkButtons()
+{
+	static byte previousstate[NUMBUTTONS];
+	static byte currentstate[NUMBUTTONS];
+	static long lasttime;
+	byte index;
+	if (millis() < lasttime) {
+		// we wrapped around, lets just try again
+		lasttime = millis();
+	}
+	if ((lasttime + DEBOUNCE) > millis()) {
+		// not enough time has passed to debounce
+		return;
+	}
+	// ok we have waited DEBOUNCE milliseconds, lets reset the timer
+	lasttime = millis();
+	for (index = 0; index < NUMBUTTONS; index++) {
+		justpressed[index] = 0;       //when we start, we clear out the "just" indicators
+		justreleased[index] = 0;
+		currentstate[index] = digitalRead(buttons[index]);   //read the button
+		if (currentstate[index] == previousstate[index]) {
+			if ((pressed[index] == LOW) && (currentstate[index] == LOW)) {
+				// just pressed
+				justpressed[index] = 1;
+			}
+			else if ((pressed[index] == HIGH) && (currentstate[index] == HIGH)) {
+				justreleased[index] = 1; // just released
+			}
+			pressed[index] = !currentstate[index];  //remember, digital HIGH means NOT pressed
+		}
+		previousstate[index] = currentstate[index]; //keep a running tally of the buttons
+	}
+}
+
+byte getPressedButton() {
+	byte thisSwitch = 255;
+	checkButtons();  //check the switches &amp; get the current state
+	for (byte i = 0; i < NUMBUTTONS; i++) {
+		current_keystate[i] = justpressed[i];
+		if (current_keystate[i] != previous_keystate[i]) {
+			if (current_keystate[i]) thisSwitch = i;
+		}
+		previous_keystate[i] = current_keystate[i];
+	}
+	return thisSwitch;
+}
 
 
 void sendMessage(char* message) {
