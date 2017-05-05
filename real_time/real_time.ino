@@ -83,7 +83,7 @@ volatile int lastLightSensorState = 1;
 
 
 void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, char *msg0 = "", char *msg1 = "");
-
+void sendMessage(char* message, char* displayMessage = "", bool isNeedSMS = false);
 
 void setup()
 {
@@ -181,7 +181,7 @@ void loop()
 		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button3 press");
 		Serial.println("switch 3 just pressed"); break;
 	case 3:
-		tone(BEEP_PIN, 3500, 200);
+		tone(BEEP_PIN, 3500, 2000);
 		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button4 press");
 		Serial.println("switch 4 just pressed"); break;
 
@@ -315,7 +315,7 @@ void pumpOn() {
 		lcdLightOn(5000);
 
 		if (waterLevel_1 == LOW) {
-			sendMessage("Warning! Can't start watering. No water.");
+			sendMessage("Warning! Can't start watering. No water.", "\xcd\xe5\xeb\xfc\xe7\xff! \xcd\xe5\xf2 \xe2\xee\xe4\xfb");
 			return;
 		}
 		pump_state = PUMP_STATES::WORKING;
@@ -340,13 +340,13 @@ void pumpOff() {
 }
 
 void pumpOffEmergency() {
-	pumpOffTimer.deleteTimer(pumpOffTimerId);
-	lcdLightOn(5000);
-	if (pump_state != PUMP_STATES::WAITING) {
-		sendMessage("Warning! Emergency stop watering. No water.");
+	pumpOffTimer.deleteTimer(pumpOffTimerId);	
+	if (pump_state != PUMP_STATES::WAITING) {	
+		lcdLightOn(5000);
 		pump_state = PUMP_STATES::WAITING;
 		lcdContent.Mode = LcdContent::NORMAL;
 		digitalWrite(RELAY1_PIN, HIGH);
+		sendMessage("Warning! Emergency stop watering. No water.", "\xd1\xf2\xee\xef! \xcd\xe5\xf2 \xe2\xee\xe4\xfb!");
 	}
 }
 
@@ -556,7 +556,12 @@ byte getPressedButton() {
 }
 
 
-void sendMessage(char* message) {
+void sendMessage(char* message, char* displayMessage = "", bool isNeedSMS = false) {
 	Serial.println("Sending sms: " + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n" + message);
-	//GSM.sendSms(TRUSTED_NUMBERS[lastHostNumberIndex], message);
+
+	if (displayMessage != "")
+		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, displayMessage);
+	if (isNeedSMS)
+		GSM.sendSms(TRUSTED_NUMBERS[lastHostNumberIndex], message);
+
 }
