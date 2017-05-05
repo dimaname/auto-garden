@@ -181,7 +181,7 @@ void loop()
 		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button3 press");
 		Serial.println("switch 3 just pressed"); break;
 	case 3:
-		tone(BEEP_PIN, 3500, 2000);
+		tone(BEEP_PIN, 3500, 200);
 		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button4 press");
 		Serial.println("switch 4 just pressed"); break;
 
