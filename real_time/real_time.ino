@@ -22,11 +22,12 @@ Thread threadEvery5s = Thread();
 #define RELAY3_PIN 30
 #define RELAY4_PIN 28
 
-#define WATER_FLOW_PIN 19
+#define WATER_FLOW_PIN 18
 #define WATER_LEVEL_PIN A9
 #define WATER_LEVEL_2_PIN A10
 #define BEEP_PIN 43
 #define DH11_PIN A8
+#define EXTERNAL_THERMO 17
 #define LIGHT_SENSOR 36
 
 #define LCD_LIGHT_RED 35
@@ -38,9 +39,9 @@ Thread threadEvery5s = Thread();
 #define LCD_D7_GRAY 23
 
 #define BUTTON_PUMP 38
-#define BUTTON_LIGHT 40
-#define BUTTON_3 42
-#define BUTTON_4 44
+#define BUTTON_LIGHT 42
+#define BUTTON_3 46
+#define BUTTON_4 50
 
 #define DEBOUNCE 5 
 byte buttons[] = { BUTTON_PUMP, BUTTON_LIGHT, BUTTON_3, BUTTON_4 };
@@ -163,6 +164,12 @@ void loop()
 	{
 	case 0:		
 		tone(BEEP_PIN, 5000, 200);
+		if (pump_state != PUMP_STATES::WORKING) {
+			pumpOn();
+		}
+		else {
+			pumpOff();
+		}
 		Serial.println("switch 1 just pressed"); break;
 	case 1:
 		tone(BEEP_PIN, 4000, 200);
@@ -193,7 +200,7 @@ void threadEvery1sAction() {
 
 
 void threadEvery5sAction() {
-	checkIncomingSMS();	
+	// checkIncomingSMS();	
 	lastDH11_Temperature = dh11.readHumidity();
 	lastDH11_Humidity = dh11.readTemperature();	
 	if (isnan(lastDH11_Temperature) || isnan(lastDH11_Humidity)) {
@@ -498,5 +505,5 @@ byte getPressedButton() {
 
 void sendMessage(char* message) {
 	Serial.println("Sending sms: " + String(TRUSTED_NUMBERS[lastHostNumberIndex])+"\r\n"+ message);
-	GSM.sendSms(TRUSTED_NUMBERS[lastHostNumberIndex], message);
+	//GSM.sendSms(TRUSTED_NUMBERS[lastHostNumberIndex], message);
 }
