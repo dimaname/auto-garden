@@ -55,9 +55,9 @@ PUMP_STATES pump_state = PUMP_STATES::WAITING;
 
 LiquidCrystal LCD16x2(LCD_RS_ORANGE, LCD_E_YELLOW, LCD_D4_GREEN, LCD_D5_BLUE, LCD_D6_PUPRPLE, LCD_D7_GRAY);
 LcdContent lcdContent = LcdContent();
-SimpleTimer lcdIntroTimer, lcdLightTimer, pumpOffTimer;
+SimpleTimer lcdMessageTimer, lcdLightTimer, pumpOffTimer;
 
-int pumpOffTimerId, lcdLightTimerId;
+int pumpOffTimerId, lcdLightTimerId, lcdMessageTimerId;
 unsigned long watering_internal = 30;   // время полива
 unsigned long pumpOnTimeStamp = 0;
 int taskWateringId;
@@ -77,11 +77,12 @@ DHT dh11(DH11_PIN, DHT11);
 
 volatile int lastDH11_Temperature = 0;
 volatile int lastDH11_Humidity = 0;
+volatile int lastLightSensorState = 1;
 
 
 
 
-
+void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, char *msg0 = "", char *msg1 = "");
 
 
 void setup()
@@ -93,7 +94,7 @@ void setup()
 	pinMode(RELAY1_PIN, OUTPUT);
 	pinMode(WATER_LEVEL_PIN, INPUT_PULLUP);
 	pinMode(LIGHT_SENSOR, INPUT);
-	pinMode(LCD_LIGHT_RED, OUTPUT);	
+	pinMode(LCD_LIGHT_RED, OUTPUT);
 	dh11.begin();
 
 	Timer1.initialize(1000000);
@@ -104,14 +105,14 @@ void setup()
    // pinMode(WATER_FLOW_PIN, INPUT);
    // attachInterrupt(5, rpm, RISING);
 	///////
-	
+
 
 	threadEvery5s.onRun(threadEvery5sAction);
 	threadEvery5s.setInterval(5000);
 
 	threadEvery1s.onRun(threadEvery1sAction);
 	threadEvery1s.setInterval(1000);
-	
+
 	// инициализация часов
 	clock.begin();
 	// метод установки времени и даты в модуль вручную
@@ -121,12 +122,8 @@ void setup()
 
 	LCD16x2.begin(16, 2);
 	LCD16x2.command(0b101010);
-	lcdIntroTimer.setTimeout(5000, stopIntro);
-	lcdLightOn(15000);
-	lcdContent.set("     \xcf\xd0\xc8\xc2\xc5\xd2\x2c",
-		"\xc3\xce\xd2\xce\xc2\xc0 \xca \xd0\xc0\xc1\xce\xd2\xc5\x90", LcdContent::INTRO);
 
-
+	showLcdMessage(5000, 15000, LcdContent::MESSAGE, "     \xcf\xd0\xc8\xc2\xc5\xd2\x2c", "\xc3\xce\xd2\xce\xc2\xc0 \xca \xd0\xc0\xc1\xce\xd2\xc5\x90");
 
 
 	// кнопки
@@ -160,9 +157,10 @@ void loop()
 
 	// гасим дребезг контактов
 	byte pressedButton = getPressedButton();
+
 	switch (pressedButton)
 	{
-	case 0:		
+	case 0:
 		tone(BEEP_PIN, 5000, 200);
 		if (pump_state != PUMP_STATES::WORKING) {
 			pumpOn();
@@ -173,6 +171,9 @@ void loop()
 		Serial.println("switch 1 just pressed"); break;
 	case 1:
 		tone(BEEP_PIN, 4000, 200);
+
+		showLcdMessage(5000, 5000, LcdContent::MESSAGE_HALF, " button2 press");
+
 		Serial.println("switch 2 just pressed"); break;
 	case 2:
 		tone(BEEP_PIN, 3000, 200);
@@ -180,7 +181,7 @@ void loop()
 	case 3:
 		tone(BEEP_PIN, 2000, 200);
 		Serial.println("switch 4 just pressed"); break;
-	
+
 	}
 
 
@@ -192,8 +193,14 @@ void loop()
 
 void threadEvery1sAction() {
 
-	int raw = digitalRead(LIGHT_SENSOR);
-	Serial.println(" LIGHT_SENSOR: "+ String(raw));
+	int lightSensorState = digitalRead(LIGHT_SENSOR);
+	if (lightSensorState != lastLightSensorState) {
+		lastLightSensorState = lightSensorState;
+		tone(BEEP_PIN, 5500, 200);
+		Serial.println(" LIGHT_SENSOR: " + String(lightSensorState));
+	}
+
+
 	//calcWater();
 }
 
@@ -202,7 +209,7 @@ void threadEvery1sAction() {
 void threadEvery5sAction() {
 	// checkIncomingSMS();	
 	lastDH11_Temperature = dh11.readHumidity();
-	lastDH11_Humidity = dh11.readTemperature();	
+	lastDH11_Humidity = dh11.readTemperature();
 	if (isnan(lastDH11_Temperature) || isnan(lastDH11_Humidity)) {
 		Serial.println("Failed to read from DHT sensor!");
 		return;
@@ -218,9 +225,9 @@ void timer1_action() {
 }
 
 void lcdContentBuilder() {
-	
+
 	Serial.println("\tTemperature: " + String(lastDH11_Temperature) + "C, Humidity: " + String(lastDH11_Humidity) + "%");
-	String addSpaceT = "", addSpaceH = "";
+	String addSpaceT = "", addSpaceH = "", animateframe;
 	if (lastDH11_Temperature < 10) {
 		addSpaceT = " ";
 	}
@@ -228,18 +235,30 @@ void lcdContentBuilder() {
 		addSpaceH = " ";
 	}
 
-	lcdContent.set(String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%",
-		String("    \xef\xf3\xf1\xea " + distanceFormat(schedule.timeLeftFor(taskWateringId))), LcdContent::NORMAL);
-	
-	if (lcdContent.Mode == LcdContent::WATERING) {
-		unsigned long diff = (unsigned long)watering_internal - (millis() - pumpOnTimeStamp) / 1000L;
-		String animateframe = watering_animate[diff % 4];
+	unsigned long diff;
+	switch (lcdContent.Mode)
+	{
+
+	case  LcdContent::MESSAGE_HALF:
+		break;
+
+	case  LcdContent::WATERING:
+		diff = (unsigned long)watering_internal - (millis() - pumpOnTimeStamp) / 1000L;
+		animateframe = watering_animate[diff % 4];
 
 		lcdContent.set(String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%",
 			String(" \xef\xee\xeb\xe8\xe2 " + animateframe + " " + distanceFormat(diff)), LcdContent::WATERING);
 
+		break;
+
+	case  LcdContent::NORMAL:
+		lcdContent.set(String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%",
+			String("    \xef\xf3\xf1\xea " + distanceFormat(schedule.timeLeftFor(taskWateringId))), LcdContent::NORMAL);
+		break;
 	}
-	
+
+
+
 }
 
 void checkWaterLevel() {
@@ -288,10 +307,10 @@ void pumpOn() {
 	if (pump_state != PUMP_STATES::WORKING) {
 		lcdLightOn(5000);
 
-		if (waterLevel_1 == LOW) {			
+		if (waterLevel_1 == LOW) {
 			sendMessage("Warning! Can't start watering. No water.");
 			return;
-		}				
+		}
 		pump_state = PUMP_STATES::WORKING;
 		lcdContent.Mode = LcdContent::WATERING;
 		digitalWrite(RELAY1_PIN, LOW);
@@ -301,9 +320,9 @@ void pumpOn() {
 	}
 
 }
-void pumpOff() {	
+void pumpOff() {
 	pumpOffTimer.deleteTimer(pumpOffTimerId);
-	if (pump_state != PUMP_STATES::WAITING) {		
+	if (pump_state != PUMP_STATES::WAITING) {
 		lcdLightOn(5000);
 		pump_state = PUMP_STATES::WAITING;
 		lcdContent.Mode = LcdContent::NORMAL;
@@ -317,11 +336,11 @@ void pumpOffEmergency() {
 	pumpOffTimer.deleteTimer(pumpOffTimerId);
 	lcdLightOn(5000);
 	if (pump_state != PUMP_STATES::WAITING) {
-		sendMessage("Warning! Emergency stop watering. No water.");		
+		sendMessage("Warning! Emergency stop watering. No water.");
 		pump_state = PUMP_STATES::WAITING;
 		lcdContent.Mode = LcdContent::NORMAL;
 		digitalWrite(RELAY1_PIN, HIGH);
-	}		
+	}
 }
 
 void lcdLightOn(int timer) {
@@ -330,21 +349,43 @@ void lcdLightOn(int timer) {
 	lcdLightTimerId = lcdLightTimer.setTimeout(timer, lcdLightOff);
 }
 
-void lcdLightOff() {	
+void lcdLightOff() {
 	digitalWrite(LCD_LIGHT_RED, LOW);
 }
 
-void stopIntro() {	
-	LCD16x2.clear();
-	if (lcdContent.Mode == LcdContent::INTRO)
-		lcdContent.Mode = LcdContent::NORMAL;
 
+void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, char *msg0 = "", char *msg1 = "") {
+	lcdMessageTimer.deleteTimer(lcdMessageTimerId);
+	lcdMessageTimerId = lcdMessageTimer.setTimeout(showTimeout, hideLcdMessage);
+	
+	if (mode == LcdContent::MESSAGE_HALF) {
+		lcdContent.Mode = mode;
+		lcdContent.set("", msg0, mode);
+	}
+	else if (mode == LcdContent::MESSAGE) {
+		lcdContent.Mode = mode;
+		lcdContent.set(msg0, msg1, mode);
+	}
+
+	lcdLightOn(lightTimeout);
+	lcdContentBuilder();
+	lcdRunner();
+}
+
+
+void hideLcdMessage() {
+	
+	lcdMessageTimer.deleteTimer(lcdMessageTimerId);
+	if (lcdContent.Mode == LcdContent::MESSAGE || lcdContent.Mode == LcdContent::MESSAGE_HALF)
+		lcdContent.Mode = LcdContent::NORMAL;	
+	lcdContentBuilder();
+	lcdRunner();
 }
 
 void lcdRunner() {
-	lcdIntroTimer.run();
+	lcdMessageTimer.run();
 	lcdLightTimer.run();
-	if (lcdContent.hasNew) {
+	if (lcdContent.hasNew) {	
 		lcdContent.hasNew = false;
 		LCD16x2.setCursor(0, 0);
 		LCD16x2.print(lcdContent.FirstRow);
@@ -398,30 +439,30 @@ String distanceFormat(unsigned long distance_in_second) {
 }
 
 
-void checkIncomingSMS(){ 
-	
-	String textSms = GSM.readSms(1); 
+void checkIncomingSMS() {
+
+	String textSms = GSM.readSms(1);
 	if (textSms && textSms.length()) {
 		String numberSms = GSM.getNumberSms(1);
 		Serial.println("numberSms: " + numberSms);
 		Serial.println("textSms: " + textSms);
-		
-		int numberIndex = numberIndexInTrustedList(numberSms);	
+
+		int numberIndex = numberIndexInTrustedList(numberSms);
 		if (numberIndex != -1) {
 			lastHostNumberIndex = numberIndex;
 			processSmsCommand(textSms);
 		}
 		else {
 			Serial.println("Not trusted number: " + numberSms);
-		}		
-		GSM.delAllSms();		
-	}		
+		}
+		GSM.delAllSms();
+	}
 }
 
 void processSmsCommand(String smsText) {
 	smsText.toUpperCase();
-	
-	if (smsText.indexOf("PUMP ON") != -1 || smsText.indexOf("PUMPON") != -1) 
+
+	if (smsText.indexOf("PUMP ON") != -1 || smsText.indexOf("PUMPON") != -1)
 	{
 		pumpOn();
 	}
@@ -504,6 +545,6 @@ byte getPressedButton() {
 
 
 void sendMessage(char* message) {
-	Serial.println("Sending sms: " + String(TRUSTED_NUMBERS[lastHostNumberIndex])+"\r\n"+ message);
+	Serial.println("Sending sms: " + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n" + message);
 	//GSM.sendSms(TRUSTED_NUMBERS[lastHostNumberIndex], message);
 }

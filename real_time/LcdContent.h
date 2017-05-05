@@ -4,7 +4,7 @@
 #define _LCDCONTENT_h
 
 #if defined(ARDUINO) && ARDUINO >= 100
-#include "arduino.h"
+#include "arduino.h" 
 #else
 #include "WProgram.h"
 #endif
@@ -15,7 +15,7 @@ protected:
 
 
 public:
-	enum MODES { INTRO, NORMAL, WATERING };
+	enum MODES { NORMAL, WATERING, MESSAGE, MESSAGE_HALF };
 	String FirstRow;
 	String SecondRow;
 	MODES Mode;
@@ -24,29 +24,38 @@ public:
 		FirstRow = String(s1);
 		SecondRow = String(s2);
 		hasNew = true;
-		Mode = INTRO;
+		Mode = NORMAL;
 	}
 	LcdContent() {
 		FirstRow = String("");
 		SecondRow = String("");
 		hasNew = true;
-		Mode = INTRO;
+		Mode = NORMAL;
 	}
 	void set(char* s1, char* s2, MODES m) {
 		if (Mode == m) {
-			FirstRow = String(s1);
-			SecondRow = String(s2);
+			FirstRow = addSpaces(String(s1));
+			SecondRow = addSpaces(String(s2));
 			hasNew = true;
 		}
 
 	}
-	void set(String s1, String s2, MODES m) {	
+	void set(String s1, String s2, MODES m) {
 		if (Mode == m) {
-			FirstRow = s1;
-			SecondRow = s2;
+			FirstRow = addSpaces(s1);
+			SecondRow = addSpaces(s2);
 			hasNew = true;
 		}
 	}
+
+	String addSpaces(String str) {
+		int length = str.length();
+		for (int i = length; i < 16; i++) {
+			str += " ";
+		}
+		return str;
+	};
+
 };
 
 
