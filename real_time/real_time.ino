@@ -132,6 +132,7 @@ void setup()
 	pinMode(BUTTON_3, INPUT);
 	pinMode(BUTTON_4, INPUT);
 
+
 	/////
 
 	//schedule.addTask("00:09", pumpOff);
@@ -170,16 +171,18 @@ void loop()
 		}
 		Serial.println("switch 1 just pressed"); break;
 	case 1:
-		tone(BEEP_PIN, 4000, 200);
+		tone(BEEP_PIN, 4500, 200);
 
-		showLcdMessage(5000, 5000, LcdContent::MESSAGE_HALF, " button2 press");
+		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button2 press");
 
 		Serial.println("switch 2 just pressed"); break;
 	case 2:
-		tone(BEEP_PIN, 3000, 200);
+		tone(BEEP_PIN, 4000, 200);
+		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button3 press");
 		Serial.println("switch 3 just pressed"); break;
 	case 3:
-		tone(BEEP_PIN, 2000, 200);
+		tone(BEEP_PIN, 3500, 200);
+		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button4 press");
 		Serial.println("switch 4 just pressed"); break;
 
 	}
@@ -227,7 +230,7 @@ void timer1_action() {
 void lcdContentBuilder() {
 
 	Serial.println("\tTemperature: " + String(lastDH11_Temperature) + "C, Humidity: " + String(lastDH11_Humidity) + "%");
-	String addSpaceT = "", addSpaceH = "", animateframe;
+	String addSpaceT = "", addSpaceH = "", animateframe, _first = "", _second = "";
 	if (lastDH11_Temperature < 10) {
 		addSpaceT = " ";
 	}
@@ -239,25 +242,29 @@ void lcdContentBuilder() {
 	switch (lcdContent.Mode)
 	{
 
-	case  LcdContent::MESSAGE_HALF:
+	case  LcdContent::MESSAGE:
+		_first = lcdContent.FirstRow;
+		_second = lcdContent.SecondRow;
 		break;
-
+	case  LcdContent::MESSAGE_HALF:
+		_first = String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%";
+		_second = lcdContent.SecondRow;
+		break;
 	case  LcdContent::WATERING:
 		diff = (unsigned long)watering_internal - (millis() - pumpOnTimeStamp) / 1000L;
 		animateframe = watering_animate[diff % 4];
-
-		lcdContent.set(String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%",
-			String(" \xef\xee\xeb\xe8\xe2 " + animateframe + " " + distanceFormat(diff)), LcdContent::WATERING);
+		_first = String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%";
+		_second = " \xef\xee\xeb\xe8\xe2 " + animateframe + " " + distanceFormat(diff);
 
 		break;
 
 	case  LcdContent::NORMAL:
-		lcdContent.set(String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%",
-			String("    \xef\xf3\xf1\xea " + distanceFormat(schedule.timeLeftFor(taskWateringId))), LcdContent::NORMAL);
+		_first = String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%";
+		_second = "    \xef\xf3\xf1\xea " + distanceFormat(schedule.timeLeftFor(taskWateringId));
 		break;
 	}
 
-
+	lcdContent.set(_first, _second, lcdContent.Mode);
 
 }
 
@@ -355,12 +362,16 @@ void lcdLightOff() {
 
 
 void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, char *msg0 = "", char *msg1 = "") {
+	if (lcdContent.Mode == LcdContent::WATERING) {
+		return;
+	}
+	
 	lcdMessageTimer.deleteTimer(lcdMessageTimerId);
 	lcdMessageTimerId = lcdMessageTimer.setTimeout(showTimeout, hideLcdMessage);
 	
 	if (mode == LcdContent::MESSAGE_HALF) {
 		lcdContent.Mode = mode;
-		lcdContent.set("", msg0, mode);
+		lcdContent.setSecondLine(msg0, mode);
 	}
 	else if (mode == LcdContent::MESSAGE) {
 		lcdContent.Mode = mode;
@@ -373,8 +384,7 @@ void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, c
 }
 
 
-void hideLcdMessage() {
-	
+void hideLcdMessage() {	
 	lcdMessageTimer.deleteTimer(lcdMessageTimerId);
 	if (lcdContent.Mode == LcdContent::MESSAGE || lcdContent.Mode == LcdContent::MESSAGE_HALF)
 		lcdContent.Mode = LcdContent::NORMAL;	
@@ -495,7 +505,6 @@ int numberIndexInTrustedList(String number) {
 };
 
 
-
 void checkButtons()
 {
 	static byte previousstate[NUMBUTTONS];
@@ -516,12 +525,13 @@ void checkButtons()
 		justpressed[index] = 0;       //when we start, we clear out the "just" indicators
 		justreleased[index] = 0;
 		currentstate[index] = digitalRead(buttons[index]);   //read the button
-		if (currentstate[index] == previousstate[index]) {
-			if ((pressed[index] == LOW) && (currentstate[index] == LOW)) {
+	
+		if (currentstate[index] != previousstate[index]) {
+			if ((pressed[index] == HIGH) && (currentstate[index] == HIGH)) {
 				// just pressed
 				justpressed[index] = 1;
 			}
-			else if ((pressed[index] == HIGH) && (currentstate[index] == HIGH)) {
+			else if ((pressed[index] == LOW) && (currentstate[index] == LOW)) {
 				justreleased[index] = 1; // just released
 			}
 			pressed[index] = !currentstate[index];  //remember, digital HIGH means NOT pressed
@@ -534,12 +544,14 @@ byte getPressedButton() {
 	byte thisSwitch = 255;
 	checkButtons();  //check the switches &amp; get the current state
 	for (byte i = 0; i < NUMBUTTONS; i++) {
-		current_keystate[i] = justpressed[i];
+		current_keystate[i] = justreleased[i];
 		if (current_keystate[i] != previous_keystate[i]) {
-			if (current_keystate[i]) thisSwitch = i;
+			if (current_keystate[i]) {
+				thisSwitch = i;				
+			} 
 		}
 		previous_keystate[i] = current_keystate[i];
-	}
+	}	
 	return thisSwitch;
 }
 

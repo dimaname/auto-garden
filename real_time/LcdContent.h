@@ -19,18 +19,19 @@ public:
 	String FirstRow;
 	String SecondRow;
 	MODES Mode;
+	MODES restoreMode;
 	bool hasNew;
 	LcdContent(char* s1, char* s2) {
 		FirstRow = String(s1);
 		SecondRow = String(s2);
 		hasNew = true;
-		Mode = NORMAL;
+		Mode = restoreMode = NORMAL;
 	}
 	LcdContent() {
 		FirstRow = String("");
 		SecondRow = String("");
 		hasNew = true;
-		Mode = NORMAL;
+		Mode = restoreMode = NORMAL;
 	}
 	void set(char* s1, char* s2, MODES m) {
 		if (Mode == m) {
@@ -47,6 +48,20 @@ public:
 			hasNew = true;
 		}
 	}
+
+	void setSecondLine(String s, MODES m) {
+		if (Mode == m) {			
+			SecondRow = addSpaces(s);
+			hasNew = true;
+		}
+	}
+	void setFirstLine(String s, MODES m) {
+		if (Mode == m) {
+			FirstRow = addSpaces(s);		
+			hasNew = true;
+		}
+	}
+
 
 	String addSpaces(String str) {
 		int length = str.length();
