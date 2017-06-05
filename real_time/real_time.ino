@@ -67,7 +67,7 @@ volatile int waterLevel_1 = 0;
 
 
 Sim800l GSM;
-char* TRUSTED_NUMBERS[] = { "79617638670", "79068577144" };
+char* TRUSTED_NUMBERS[] = { "79617638670" };
 int lastHostNumberIndex = 0;
 // создаём объект для работы с часами реального времени
 RTC clock;
@@ -83,7 +83,7 @@ volatile int lastLightSensorState = 1;
 
 
 void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, char *msg0 = "", char *msg1 = "");
-void sendMessage(char* message, char* displayMessage = "", bool isNeedSMS = false);
+void sendMessage(char* message, bool isNeedSMS = false);
 
 void setup()
 {
@@ -315,7 +315,8 @@ void pumpOn() {
 		lcdLightOn(5000);
 
 		if (waterLevel_1 == LOW) {
-			sendMessage("Warning! Can't start watering. No water.", "\xcd\xe5\xeb\xfc\xe7\xff! \xcd\xe5\xf2 \xe2\xee\xe4\xfb");
+			sendMessage("Warning! Can't start watering. No water.", true);
+			showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xcd\xe5\xeb\xfc\xe7\xff! \xcd\xe5\xf2 \xe2\xee\xe4\xfb");
 			return;
 		}
 		pump_state = PUMP_STATES::WORKING;
@@ -346,7 +347,8 @@ void pumpOffEmergency() {
 		pump_state = PUMP_STATES::WAITING;
 		lcdContent.Mode = LcdContent::NORMAL;
 		digitalWrite(RELAY1_PIN, HIGH);
-		sendMessage("Warning! Emergency stop watering. No water.", "\xd1\xf2\xee\xef! \xcd\xe5\xf2 \xe2\xee\xe4\xfb!");
+		sendMessage("Warning! Emergency stop watering. No water.", true);
+		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xd1\xf2\xee\xef! \xcd\xe5\xf2 \xe2\xee\xe4\xfb!");
 	}
 }
 
@@ -556,12 +558,31 @@ byte getPressedButton() {
 }
 
 
-void sendMessage(char* message, char* displayMessage = "", bool isNeedSMS = false) {
-	Serial.println("Sending sms: " + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n" + message);
+void sendMessage(char* message, bool isSendToEachHost = false) {
+	
+	char * fullMessage = addTimePrefix(message);
 
-	if (displayMessage != "")
-		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, displayMessage);
-	if (isNeedSMS)
-		GSM.sendSms(TRUSTED_NUMBERS[lastHostNumberIndex], message);
+	Serial.println("\tSending sms: " + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n\t" + fullMessage);		
+	if (isSendToEachHost) {
+		unsigned length = sizeof(TRUSTED_NUMBERS) / sizeof(TRUSTED_NUMBERS[0]);
+		for (int i = 0; i < length; i++)
+		{
+			GSM.sendSms(TRUSTED_NUMBERS[i], fullMessage);
+		}
+		
+	}
+	else {
+		GSM.sendSms(TRUSTED_NUMBERS[lastHostNumberIndex], fullMessage);
+	}
 
+}
+
+char* addTimePrefix(char* str) {
+	char* _timeStr = schedule.timeStr;
+	int bufferSize = strlen(_timeStr) + strlen(str) + 2;
+	char* concatString = new char[bufferSize];
+	strcpy(concatString, _timeStr);
+	strcat(concatString, " ");
+	strcat(concatString, str);
+	return concatString;
 }
