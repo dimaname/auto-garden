@@ -79,23 +79,26 @@ private:
 
 	};
 public:
-	RTC clock;
 	Schedule(RTC);
-	vector<int> daysToArray(String);
-	vector<int>  parseTime(String);
-	int nameOfDayToNumber(String);
 
 	static int weekday;
 	static int hour;
 	static int minute;
 	static int second;
 	static char timeStr[LEN_TIME];
-	
+
+	vector<ScheduleItem> items;
+	RTC clock;
+
 	void tact();
 	int addTask(String, void());
+	int nameOfDayToNumber(String);
 	unsigned long timeLeftFor(int);
+	void changeTaskTime(int, String);
+	vector<int> getDaysFromTimeplan(String);
+	vector<int>  getTimeFromTimeplan(String);
+	Schedule::TYPE getTimeplaneType(String);	
 	void Schedule::checkTasks();
-	vector<ScheduleItem> items;
 };
 
 

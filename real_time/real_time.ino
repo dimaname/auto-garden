@@ -3,11 +3,12 @@
 #include <Thread.h>
 #include "LcdContent.h"
 #include "Schedule.h"
+#include "Buttons.h"
 #include <functional>
 #include <LiquidCrystal.h>
 #include <Bounce2.h>
 #include <SimpleTimer.h>
-
+#include "Constans.h"
 #include <SoftwareSerial.h>
 #include <Sim800l.h>
 
@@ -17,41 +18,7 @@ Thread threadEvery1s = Thread();
 Thread threadEvery5s = Thread();
 
 
-#define RELAY1_PIN 34
-#define RELAY2_PIN 32
-#define RELAY3_PIN 30
-#define RELAY4_PIN 28
 
-#define WATER_FLOW_PIN 18
-#define WATER_LEVEL_PIN A9
-#define WATER_LEVEL_2_PIN A10
-#define BEEP_PIN 43
-#define DH11_PIN A8
-#define EXTERNAL_THERMO 17
-#define LIGHT_SENSOR 36
-
-#define LCD_LIGHT_RED 35
-#define LCD_RS_ORANGE 33
-#define LCD_E_YELLOW 31
-#define LCD_D4_GREEN 29
-#define LCD_D5_BLUE 27
-#define LCD_D6_PUPRPLE 25
-#define LCD_D7_GRAY 23
-
-#define BUTTON_PUMP 38
-#define BUTTON_LIGHT 42
-#define BUTTON_3 46
-#define BUTTON_4 50
-
-#define DEBOUNCE 5 
-byte buttons[] = { BUTTON_PUMP, BUTTON_LIGHT, BUTTON_3, BUTTON_4 };
-#define NUMBUTTONS sizeof(buttons)
-byte pressed[NUMBUTTONS], justpressed[NUMBUTTONS], justreleased[NUMBUTTONS];
-byte previous_keystate[NUMBUTTONS], current_keystate[NUMBUTTONS];
-
-
-enum PUMP_STATES { WAITING, WORKING };
-PUMP_STATES pump_state = PUMP_STATES::WAITING;
 
 LiquidCrystal LCD16x2(LCD_RS_ORANGE, LCD_E_YELLOW, LCD_D4_GREEN, LCD_D5_BLUE, LCD_D6_PUPRPLE, LCD_D7_GRAY);
 LcdContent lcdContent = LcdContent();
@@ -60,7 +27,7 @@ SimpleTimer lcdMessageTimer, lcdLightTimer, pumpOffTimer;
 int pumpOffTimerId, lcdLightTimerId, lcdMessageTimerId;
 unsigned long watering_internal = 30;   // время полива
 unsigned long pumpOnTimeStamp = 0;
-int taskWateringId;
+
 String watering_animate[4] = { "\x97", "\x96", "\x95", "\x94" };
 const float waterFlowK = 52;   // подобпать коэф. на месте. (дома на 5 литрах было ~85 или 52)
 volatile int waterLevel_1 = 0;
@@ -69,9 +36,6 @@ volatile int waterLevel_1 = 0;
 Sim800l GSM;
 char* TRUSTED_NUMBERS[] = { "79617638670" };
 int lastHostNumberIndex = 0;
-// создаём объект для работы с часами реального времени
-RTC clock;
-Schedule schedule(clock);
 
 DHT dh11(DH11_PIN, DHT11);
 
@@ -79,11 +43,6 @@ volatile int lastDH11_Temperature = 0;
 volatile int lastDH11_Humidity = 0;
 volatile int lastLightSensorState = 1;
 
-
-
-
-void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, char *msg0 = "", char *msg1 = "");
-void sendMessage(char* message, bool isNeedSMS = false);
 
 void setup()
 {
@@ -131,11 +90,8 @@ void setup()
 	pinMode(BUTTON_LIGHT, INPUT);
 	pinMode(BUTTON_3, INPUT);
 	pinMode(BUTTON_4, INPUT);
-
-
-	/////
-
-	//schedule.addTask("00:09", pumpOff);
+		
+	//"MO TU WE TH FR SA SU, 15:32:00"
 	taskWateringId = schedule.addTask("18:19:00", pumpOn);
 
 	pumpOff();
@@ -151,40 +107,26 @@ void loop()
 
 	if (threadEvery5s.shouldRun())
 		threadEvery5s.run(); // запускаем поток
-
-
+	
 	pumpOffTimer.run();
-
-
+	
 	// гасим дребезг контактов
 	byte pressedButton = getPressedButton();
 
 	switch (pressedButton)
 	{
 	case 0:
-		tone(BEEP_PIN, 5000, 200);
-		if (pump_state != PUMP_STATES::WORKING) {
-			pumpOn();
-		}
-		else {
-			pumpOff();
-		}
-		Serial.println("switch 1 just pressed"); break;
+		button1Press();
+		break;
 	case 1:
-		tone(BEEP_PIN, 4500, 200);
-
-		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button2 press");
-
-		Serial.println("switch 2 just pressed"); break;
+		button2Press();
+		break;
 	case 2:
-		tone(BEEP_PIN, 4000, 200);
-		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button3 press");
-		Serial.println("switch 3 just pressed"); break;
+		button3Press();
+		break;
 	case 3:
-		tone(BEEP_PIN, 3500, 200);
-		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button4 press");
-		Serial.println("switch 4 just pressed"); break;
-
+		button4Press();
+		break;
 	}
 
 
@@ -210,7 +152,7 @@ void threadEvery1sAction() {
 
 
 void threadEvery5sAction() {
-	// checkIncomingSMS();	
+//	checkIncomingSMS();	
 	lastDH11_Temperature = dh11.readHumidity();
 	lastDH11_Humidity = dh11.readTemperature();
 	if (isnan(lastDH11_Temperature) || isnan(lastDH11_Humidity)) {
@@ -341,8 +283,8 @@ void pumpOff() {
 }
 
 void pumpOffEmergency() {
-	pumpOffTimer.deleteTimer(pumpOffTimerId);	
-	if (pump_state != PUMP_STATES::WAITING) {	
+	pumpOffTimer.deleteTimer(pumpOffTimerId);
+	if (pump_state != PUMP_STATES::WAITING) {
 		lcdLightOn(5000);
 		pump_state = PUMP_STATES::WAITING;
 		lcdContent.Mode = LcdContent::NORMAL;
@@ -367,10 +309,10 @@ void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, c
 	if (lcdContent.Mode == LcdContent::WATERING) {
 		return;
 	}
-	
+
 	lcdMessageTimer.deleteTimer(lcdMessageTimerId);
 	lcdMessageTimerId = lcdMessageTimer.setTimeout(showTimeout, hideLcdMessage);
-	
+
 	if (mode == LcdContent::MESSAGE_HALF) {
 		lcdContent.Mode = mode;
 		lcdContent.setSecondLine(msg0, mode);
@@ -386,10 +328,10 @@ void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, c
 }
 
 
-void hideLcdMessage() {	
+void hideLcdMessage() {
 	lcdMessageTimer.deleteTimer(lcdMessageTimerId);
 	if (lcdContent.Mode == LcdContent::MESSAGE || lcdContent.Mode == LcdContent::MESSAGE_HALF)
-		lcdContent.Mode = LcdContent::NORMAL;	
+		lcdContent.Mode = LcdContent::NORMAL;
 	lcdContentBuilder();
 	lcdRunner();
 }
@@ -397,7 +339,7 @@ void hideLcdMessage() {
 void lcdRunner() {
 	lcdMessageTimer.run();
 	lcdLightTimer.run();
-	if (lcdContent.hasNew) {	
+	if (lcdContent.hasNew) {
 		lcdContent.hasNew = false;
 		LCD16x2.setCursor(0, 0);
 		LCD16x2.print(lcdContent.FirstRow);
@@ -474,7 +416,11 @@ void checkIncomingSMS() {
 void processSmsCommand(String smsText) {
 	smsText.toUpperCase();
 
-	if (smsText.indexOf("PUMP ON") != -1 || smsText.indexOf("PUMPON") != -1)
+	if (smsText.indexOf("HELP") != -1)
+	{
+		Serial.println("HELP");
+	}
+	else if (smsText.indexOf("PUMP ON") != -1 || smsText.indexOf("PUMPON") != -1)
 	{
 		pumpOn();
 	}
@@ -486,10 +432,12 @@ void processSmsCommand(String smsText) {
 	{
 		Serial.println("LIGHT Off!");
 	}
-	else if (smsText.indexOf("LIGHT OFF") != -1 || smsText.indexOf("LIGHTOFF") != -1)
+	else if (smsText.indexOf("START AT") != -1 || smsText.indexOf("STARTAT") != -1)
 	{
-		Serial.println("LIGHT Off!");
+		Serial.println("START AT!");
 	}
+
+
 };
 
 
@@ -507,71 +455,21 @@ int numberIndexInTrustedList(String number) {
 };
 
 
-void checkButtons()
-{
-	static byte previousstate[NUMBUTTONS];
-	static byte currentstate[NUMBUTTONS];
-	static long lasttime;
-	byte index;
-	if (millis() < lasttime) {
-		// we wrapped around, lets just try again
-		lasttime = millis();
-	}
-	if ((lasttime + DEBOUNCE) > millis()) {
-		// not enough time has passed to debounce
-		return;
-	}
-	// ok we have waited DEBOUNCE milliseconds, lets reset the timer
-	lasttime = millis();
-	for (index = 0; index < NUMBUTTONS; index++) {
-		justpressed[index] = 0;       //when we start, we clear out the "just" indicators
-		justreleased[index] = 0;
-		currentstate[index] = digitalRead(buttons[index]);   //read the button
-	
-		if (currentstate[index] != previousstate[index]) {
-			if ((pressed[index] == HIGH) && (currentstate[index] == HIGH)) {
-				// just pressed
-				justpressed[index] = 1;
-			}
-			else if ((pressed[index] == LOW) && (currentstate[index] == LOW)) {
-				justreleased[index] = 1; // just released
-			}
-			pressed[index] = !currentstate[index];  //remember, digital HIGH means NOT pressed
-		}
-		previousstate[index] = currentstate[index]; //keep a running tally of the buttons
-	}
-}
-
-byte getPressedButton() {
-	byte thisSwitch = 255;
-	checkButtons();  //check the switches &amp; get the current state
-	for (byte i = 0; i < NUMBUTTONS; i++) {
-		current_keystate[i] = justreleased[i];
-		if (current_keystate[i] != previous_keystate[i]) {
-			if (current_keystate[i]) {
-				thisSwitch = i;				
-			} 
-		}
-		previous_keystate[i] = current_keystate[i];
-	}	
-	return thisSwitch;
-}
-
 
 void sendMessage(char* message, bool isSendToEachHost = false) {
-	
-	char * fullMessage = addTimePrefix(message);
 
-	Serial.println("\tSending sms: " + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n\t" + fullMessage);		
-	if (isSendToEachHost) {
+	char* fullMessage = addTimePrefix(message);
+	Serial.println("isDisabledGSM: " + String(isDisabledGSM));
+	Serial.println("\tSending sms: " + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n\t" + fullMessage);
+	if (isSendToEachHost && !isDisabledGSM) {
 		unsigned length = sizeof(TRUSTED_NUMBERS) / sizeof(TRUSTED_NUMBERS[0]);
 		for (int i = 0; i < length; i++)
 		{
 			GSM.sendSms(TRUSTED_NUMBERS[i], fullMessage);
 		}
-		
+
 	}
-	else {
+	else if (!isDisabledGSM) {
 		GSM.sendSms(TRUSTED_NUMBERS[lastHostNumberIndex], fullMessage);
 	}
 
