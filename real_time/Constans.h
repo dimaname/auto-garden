@@ -34,10 +34,14 @@ PUMP_STATES pump_state = PUMP_STATES::WAITING;
 
 RTC clock;
 Schedule schedule(clock);
-int taskWateringId;
+int taskWateringId = -1;
 bool isDisabledGSM = false;
-void pumpOn();
-void pumpOff();
+void pumpOn(bool isNeedSms = false);
+void pumpOff(bool isNeedSms = false);
+void pumpOnWithSms();
+void pumpOnWithoutSms();
+void pumpOffWithSms();
+void pumpOffWithoutSms();
 void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, char *msg0 = "", char *msg1 = "");
-void sendMessage(char* message, bool isNeedSMS = false);
+void sendMessage(char* message, bool isNeedSms = false, bool isSendToEachHost = false);
 #endif 

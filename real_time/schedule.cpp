@@ -52,6 +52,10 @@ int Schedule::addTask(String timeplan, void callback()) {
 	return items.size() - 1;
 };
 
+void  Schedule::removeTask(int taskId) {	
+	items.erase(items.begin() + taskId);
+};
+
 void Schedule::changeTaskTime(int taskId, String timeplan) {
 	ScheduleItem &task = items.at(taskId);
 	timeplan.trim();
@@ -76,6 +80,10 @@ void Schedule::changeTaskTime(int taskId, String timeplan) {
 
 
 unsigned long Schedule::timeLeftFor(int taskId) {
+	if (taskId > items.size() - 1 || taskId < 0) {
+		return 0;
+	}
+
 	ScheduleItem task = items.at(taskId);
 	int minDistanceDays = 7;
 	unsigned long  secondBeforeTask = task.hour * 3600L + task.minute * 60L + task.second;
@@ -85,7 +93,10 @@ unsigned long Schedule::timeLeftFor(int taskId) {
 	switch (task.type)
 	{
 	case Schedule::EveryWeek:
+
+		Serial.print("task.weekdays ");
 		for (std::vector<int>::iterator it = task.weekdays.begin(); it != task.weekdays.end(); ++it) {
+			Serial.print(" "+ String(*it));
 			int dist = *it - weekday;
 			dist = dist < 0 ? dist + 7 : dist;
 			if (dist == 0 && isFireToday) {
@@ -94,7 +105,7 @@ unsigned long Schedule::timeLeftFor(int taskId) {
 			if (dist < minDistanceDays) {
 				minDistanceDays = dist;
 			}
-		}
+		}Serial.print("\r\n ");
 		break;
 	case Schedule::EveryDay: 
 		minDistanceDays = isFireToday ? 1 : 0;
@@ -123,17 +134,22 @@ vector<int> Schedule::getDaysFromTimeplan(String timeplan) {
 	int comPos = timeplan.indexOf(",");
 	String daysPart = timeplan.substring(0, comPos);
 	daysPart.trim();
-
+	daysPart += " ";	
 	int startPos = 0;
 	int spacePos = daysPart.indexOf(" ", startPos);
+
+	
 	String day;
 	vector<int> ret;
-	while (spacePos != -1) {
-		ret.push_back(nameOfDayToNumber(daysPart.substring(startPos, spacePos)));
+	do {
+		int dayNumber = nameOfDayToNumber(daysPart.substring(startPos, spacePos));
+		if (dayNumber != -1) {			
+			ret.push_back(dayNumber);
+		}
 		startPos = spacePos + 1;
 		spacePos = daysPart.indexOf(" ", startPos);
-	}
-	ret.push_back(nameOfDayToNumber(daysPart.substring(startPos)));
+	
+	} while (spacePos != -1);			
 	sort(ret.begin(), ret.end());
 	return ret;
 }
@@ -161,6 +177,7 @@ vector<int> Schedule::getTimeFromTimeplan(String timeplan) {
 
 
 int  Schedule::nameOfDayToNumber(String day) {
+	day.trim();	
 	day.toUpperCase();
 	if (day == "MO") {
 		return 1;

@@ -92,6 +92,7 @@ public:
 
 	void tact();
 	int addTask(String, void());
+	void removeTask(int);
 	int nameOfDayToNumber(String);
 	unsigned long timeLeftFor(int);
 	void changeTaskTime(int, String);

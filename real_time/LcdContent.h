@@ -15,23 +15,22 @@ protected:
 
 
 public:
-	enum MODES { NORMAL, WATERING, MESSAGE, MESSAGE_HALF };
+	enum MODES { NORMAL, WATERING, MESSAGE, MESSAGE_HALF, STOP };
 	String FirstRow;
 	String SecondRow;
 	MODES Mode;
-	MODES restoreMode;
 	bool hasNew;
 	LcdContent(char* s1, char* s2) {
 		FirstRow = String(s1);
 		SecondRow = String(s2);
 		hasNew = true;
-		Mode = restoreMode = NORMAL;
+		Mode = NORMAL;
 	}
 	LcdContent() {
 		FirstRow = String("");
 		SecondRow = String("");
 		hasNew = true;
-		Mode = restoreMode = NORMAL;
+		Mode = STOP;
 	}
 	void set(char* s1, char* s2, MODES m) {
 		if (Mode == m) {

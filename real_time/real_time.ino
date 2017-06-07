@@ -58,7 +58,7 @@ void setup()
 
 	Timer1.initialize(1000000);
 	Timer1.attachInterrupt(timer1_action);
-
+	
 
 	////// датчик потока
    // pinMode(WATER_FLOW_PIN, INPUT);
@@ -90,10 +90,13 @@ void setup()
 	pinMode(BUTTON_LIGHT, INPUT);
 	pinMode(BUTTON_3, INPUT);
 	pinMode(BUTTON_4, INPUT);
-		
-	//"MO TU WE TH FR SA SU, 15:32:00"
-	taskWateringId = schedule.addTask("18:19:00", pumpOn);
 
+
+	// после создания таска taskWateringId нужно перевести дисплей в режим NORMAL
+	//"MO TU WE TH FR SA SU, 15:32:00"
+	//taskWateringId = schedule.addTask("18:19:00", pumpOn);
+	//lcdContent.Mode = LcdContent::NORMAL;
+	
 	pumpOff();
 	threadEvery5s.run();
 }
@@ -107,9 +110,9 @@ void loop()
 
 	if (threadEvery5s.shouldRun())
 		threadEvery5s.run(); // запускаем поток
-	
+
 	pumpOffTimer.run();
-	
+
 	// гасим дребезг контактов
 	byte pressedButton = getPressedButton();
 
@@ -122,9 +125,11 @@ void loop()
 		button2Press();
 		break;
 	case 2:
+		processSmsCommand("STOP");
 		button3Press();
 		break;
 	case 3:
+		processSmsCommand("START AT TH, 0:14");
 		button4Press();
 		break;
 	}
@@ -152,7 +157,7 @@ void threadEvery1sAction() {
 
 
 void threadEvery5sAction() {
-//	checkIncomingSMS();	
+	checkIncomingSMS();	
 	lastDH11_Temperature = dh11.readHumidity();
 	lastDH11_Humidity = dh11.readTemperature();
 	if (isnan(lastDH11_Temperature) || isnan(lastDH11_Humidity)) {
@@ -199,11 +204,15 @@ void lcdContentBuilder() {
 		_second = " \xef\xee\xeb\xe8\xe2 " + animateframe + " " + distanceFormat(diff);
 
 		break;
-
+	case  LcdContent::STOP:
+		_first = String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%";
+		_second = "                 ";
+		break;
 	case  LcdContent::NORMAL:
 		_first = String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%";
 		_second = "    \xef\xf3\xf1\xea " + distanceFormat(schedule.timeLeftFor(taskWateringId));
 		break;
+
 	}
 
 	lcdContent.set(_first, _second, lcdContent.Mode);
@@ -252,12 +261,12 @@ void calcWater() {
 	}
 }
 
-void pumpOn() {
+void pumpOn(bool isNeedSms = false) {
 	if (pump_state != PUMP_STATES::WORKING) {
 		lcdLightOn(5000);
 
 		if (waterLevel_1 == LOW) {
-			sendMessage("Warning! Can't start watering. No water.", true);
+			sendMessage("Warning! Can't start watering. No water.", true, true);
 			showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xcd\xe5\xeb\xfc\xe7\xff! \xcd\xe5\xf2 \xe2\xee\xe4\xfb");
 			return;
 		}
@@ -265,22 +274,40 @@ void pumpOn() {
 		lcdContent.Mode = LcdContent::WATERING;
 		digitalWrite(RELAY1_PIN, LOW);
 		pumpOnTimeStamp = millis();
-		pumpOffTimerId = pumpOffTimer.setTimeout((unsigned long)watering_internal * 1000L, pumpOff);
-		sendMessage("Watering start.");
+		pumpOffTimerId = pumpOffTimer.setTimeout((unsigned long)watering_internal * 1000L, isNeedSms ? pumpOffWithSms : pumpOffWithoutSms);
+		sendMessage("Watering start.", isNeedSms);
 	}
 
 }
-void pumpOff() {
+
+void pumpOnWithSms() {
+	pumpOn(true);
+}
+
+void pumpOnWithoutSms() {
+	pumpOn(false);
+}
+
+void pumpOff(bool isNeedSms = false) {
 	pumpOffTimer.deleteTimer(pumpOffTimerId);
 	if (pump_state != PUMP_STATES::WAITING) {
 		lcdLightOn(5000);
 		pump_state = PUMP_STATES::WAITING;
 		lcdContent.Mode = LcdContent::NORMAL;
 		digitalWrite(RELAY1_PIN, HIGH);
-		sendMessage("Watering finish.");
+		sendMessage("Watering finish.", isNeedSms);
 	}
 
 }
+
+void pumpOffWithSms() {
+	pumpOff(true);
+}
+
+void pumpOffWithoutSms() {
+	pumpOff(false);
+}
+
 
 void pumpOffEmergency() {
 	pumpOffTimer.deleteTimer(pumpOffTimerId);
@@ -289,7 +316,7 @@ void pumpOffEmergency() {
 		pump_state = PUMP_STATES::WAITING;
 		lcdContent.Mode = LcdContent::NORMAL;
 		digitalWrite(RELAY1_PIN, HIGH);
-		sendMessage("Warning! Emergency stop watering. No water.", true);
+		sendMessage("Warning! Emergency stop watering. No water.", true, true);
 		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xd1\xf2\xee\xef! \xcd\xe5\xf2 \xe2\xee\xe4\xfb!");
 	}
 }
@@ -331,7 +358,7 @@ void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, c
 void hideLcdMessage() {
 	lcdMessageTimer.deleteTimer(lcdMessageTimerId);
 	if (lcdContent.Mode == LcdContent::MESSAGE || lcdContent.Mode == LcdContent::MESSAGE_HALF)
-		lcdContent.Mode = LcdContent::NORMAL;
+		lcdContent.Mode = taskWateringId == -1 ? LcdContent::STOP : LcdContent::NORMAL;
 	lcdContentBuilder();
 	lcdRunner();
 }
@@ -418,25 +445,42 @@ void processSmsCommand(String smsText) {
 
 	if (smsText.indexOf("HELP") != -1)
 	{
-		Serial.println("HELP");
+		Serial.println("SMS command: HELP");
 	}
 	else if (smsText.indexOf("PUMP ON") != -1 || smsText.indexOf("PUMPON") != -1)
 	{
-		pumpOn();
+		Serial.println("SMS command: PUMP ON");
+		pumpOnWithSms();
 	}
 	else if (smsText.indexOf("PUMP OFF") != -1 || smsText.indexOf("PUMPOFF") != -1)
 	{
-		pumpOff();
+		Serial.println("SMS command: PUMP OFF");
+		pumpOffWithSms();
 	}
 	else if (smsText.indexOf("LIGHT ON") != -1 || smsText.indexOf("LIGHTON") != -1)
 	{
+		Serial.println("SMS command: LIGHT ON");
 		Serial.println("LIGHT Off!");
 	}
 	else if (smsText.indexOf("START AT") != -1 || smsText.indexOf("STARTAT") != -1)
 	{
-		Serial.println("START AT!");
+		Serial.println("SMS command: START AT");
+		String timeplan = smsText.substring(8);
+		timeplan.trim();
+		if (taskWateringId == -1) {
+			taskWateringId = schedule.addTask(timeplan, pumpOnWithSms);
+			lcdContent.Mode = LcdContent::NORMAL;
+		}
+		else {
+			schedule.changeTaskTime(taskWateringId, timeplan);
+		}
 	}
-
+	else if (smsText.indexOf("STOP") != -1 || smsText.indexOf("STOP") != -1)
+	{
+		Serial.println("SMS command: STOP");
+		schedule.removeTask(taskWateringId);
+		taskWateringId = -1;
+	}
 
 };
 
@@ -456,20 +500,27 @@ int numberIndexInTrustedList(String number) {
 
 
 
-void sendMessage(char* message, bool isSendToEachHost = false) {
+void sendMessage(char* message, bool isNeedSms = false, bool isSendToEachHost = false) {
+
+	if (isDisabledGSM) {
+		return;
+	}
 
 	char* fullMessage = addTimePrefix(message);
-	Serial.println("isDisabledGSM: " + String(isDisabledGSM));
-	Serial.println("\tSending sms: " + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n\t" + fullMessage);
-	if (isSendToEachHost && !isDisabledGSM) {
+	Serial.println("\tsendMessage: " + String(isNeedSms ? "with sms" : "no sms") + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n\t" + fullMessage);
+
+	if (!isNeedSms) {
+		return;
+	}
+
+	if (isSendToEachHost) {
 		unsigned length = sizeof(TRUSTED_NUMBERS) / sizeof(TRUSTED_NUMBERS[0]);
 		for (int i = 0; i < length; i++)
 		{
 			GSM.sendSms(TRUSTED_NUMBERS[i], fullMessage);
 		}
-
 	}
-	else if (!isDisabledGSM) {
+	else {
 		GSM.sendSms(TRUSTED_NUMBERS[lastHostNumberIndex], fullMessage);
 	}
 

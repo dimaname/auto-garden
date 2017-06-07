@@ -68,16 +68,12 @@ byte getPressedButton() {
 
 void button1Press() {
 	tone(BEEP_PIN, 5000, 200);
-	if (pump_state != PUMP_STATES::WORKING) {
-		isDisabledGSM = true;
-		pumpOn();
-		isDisabledGSM = false;
+	if (pump_state != PUMP_STATES::WORKING) {	
+		pumpOnWithoutSms();	
 	}
-	else {
-		isDisabledGSM = true;
-		pumpOff();
-		isDisabledGSM = false;
-	}
+	else {		
+		pumpOffWithoutSms();		
+	}	
 	Serial.println("switch 1 just pressed");
 }
 
@@ -95,8 +91,7 @@ void button3Press() {
 
 void button4Press() {
 	tone(BEEP_PIN, 3500, 200);
-	showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button4 press");
-	schedule.changeTaskTime(taskWateringId, "SU, 3:00:00");
+	showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button4 press");	
 	Serial.println("switch 4 just pressed");
 }
 
