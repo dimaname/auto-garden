@@ -93,8 +93,10 @@ public:
 	void tact();
 	int addTask(String, void());
 	void removeTask(int);
-	int nameOfDayToNumber(String);
+	int weekdayNameToNumber(String);
+	String weekdayNumberToName(int);
 	unsigned long timeLeftFor(int);
+	String getTaskTimeplan(int);
 	void changeTaskTime(int, String);
 	vector<int> getDaysFromTimeplan(String);
 	vector<int>  getTimeFromTimeplan(String);

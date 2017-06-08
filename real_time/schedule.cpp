@@ -1,7 +1,7 @@
 
 #include  "schedule.h"
 
-
+vector<String> WEEKDAYS_SHORT_NAMES = { "MO","TU","WE","TH","FR","SA","SU" };
 
 
 Schedule::Schedule(RTC _clock) {
@@ -36,23 +36,24 @@ void Schedule::checkTasks() {
 	}
 };
 
-int Schedule::addTask(String timeplan, void callback()) {	
+int Schedule::addTask(String timeplan, void callback()) {
 	timeplan.trim();
 	vector<int> daysOfWeekVector;
 	vector<int> timePartsVector;
 	Schedule::TYPE type = getTimeplaneType(timeplan);
-	if (type == Schedule::TYPE::EveryDay) {			
+	if (type == Schedule::TYPE::EveryDay) {
 		timePartsVector = getTimeFromTimeplan(timeplan);
-	}else {				
+	}
+	else {
 		timePartsVector = getTimeFromTimeplan(timeplan);
 		daysOfWeekVector = getDaysFromTimeplan(timeplan);
 	}
-	
+
 	items.push_back(ScheduleItem(type, daysOfWeekVector, timePartsVector[0], timePartsVector[1], timePartsVector[2], callback));
 	return items.size() - 1;
 };
 
-void  Schedule::removeTask(int taskId) {	
+void  Schedule::removeTask(int taskId) {
 	items.erase(items.begin() + taskId);
 };
 
@@ -78,6 +79,19 @@ void Schedule::changeTaskTime(int taskId, String timeplan) {
 	task.prevFirePeriodWas = -1;
 }
 
+String Schedule::getTaskTimeplan(int taskId) {
+	ScheduleItem &task = items.at(taskId);
+	String timeplan = "";
+	for (std::vector<int>::iterator it = task.weekdays.begin(); it != task.weekdays.end(); ++it) {
+		timeplan += weekdayNumberToName(*it);
+	}
+	String hour = task.hour < 10 ? "0" + String(task.hour) : String(task.hour);
+	String minute = task.minute < 10 ? "0" + String(task.minute) : String(task.minute);
+	String second = task.second < 10 ? "0" + String(task.second) : String(task.second);
+	timeplan += " " + hour + ":" + minute + ":" + second;
+	return timeplan;
+};
+
 
 unsigned long Schedule::timeLeftFor(int taskId) {
 	if (taskId > items.size() - 1 || taskId < 0) {
@@ -93,10 +107,7 @@ unsigned long Schedule::timeLeftFor(int taskId) {
 	switch (task.type)
 	{
 	case Schedule::EveryWeek:
-
-		Serial.print("task.weekdays ");
 		for (std::vector<int>::iterator it = task.weekdays.begin(); it != task.weekdays.end(); ++it) {
-			Serial.print(" "+ String(*it));
 			int dist = *it - weekday;
 			dist = dist < 0 ? dist + 7 : dist;
 			if (dist == 0 && isFireToday) {
@@ -105,9 +116,9 @@ unsigned long Schedule::timeLeftFor(int taskId) {
 			if (dist < minDistanceDays) {
 				minDistanceDays = dist;
 			}
-		}Serial.print("\r\n ");
+		}
 		break;
-	case Schedule::EveryDay: 
+	case Schedule::EveryDay:
 		minDistanceDays = isFireToday ? 1 : 0;
 		break;
 	}
@@ -119,7 +130,7 @@ unsigned long Schedule::timeLeftFor(int taskId) {
 	else {
 		distance_in_second = SECONDS_IN_DAY*(minDistanceDays - 1) + SECONDS_IN_DAY - secondBeforeNow + secondBeforeTask;
 
-	}	
+	}
 	return distance_in_second;
 
 }
@@ -134,28 +145,28 @@ vector<int> Schedule::getDaysFromTimeplan(String timeplan) {
 	int comPos = timeplan.indexOf(",");
 	String daysPart = timeplan.substring(0, comPos);
 	daysPart.trim();
-	daysPart += " ";	
+	daysPart += " ";
 	int startPos = 0;
 	int spacePos = daysPart.indexOf(" ", startPos);
 
-	
+
 	String day;
 	vector<int> ret;
 	do {
-		int dayNumber = nameOfDayToNumber(daysPart.substring(startPos, spacePos));
-		if (dayNumber != -1) {			
+		int dayNumber = weekdayNameToNumber(daysPart.substring(startPos, spacePos));	
+		if (dayNumber != -1) {
 			ret.push_back(dayNumber);
 		}
 		startPos = spacePos + 1;
 		spacePos = daysPart.indexOf(" ", startPos);
-	
-	} while (spacePos != -1);			
+
+	} while (spacePos != -1);
 	sort(ret.begin(), ret.end());
 	return ret;
 }
 
 vector<int> Schedule::getTimeFromTimeplan(String timeplan) {
-	int comPos = timeplan.indexOf(",");	
+	int comPos = timeplan.indexOf(",");
 	String timePart = timeplan.substring(comPos + 1);
 	timePart.trim();
 	vector<int> ret;
@@ -176,29 +187,21 @@ vector<int> Schedule::getTimeFromTimeplan(String timeplan) {
 
 
 
-int  Schedule::nameOfDayToNumber(String day) {
-	day.trim();	
+int Schedule::weekdayNameToNumber(String day) {
+	day.trim();
 	day.toUpperCase();
-	if (day == "MO") {
-		return 1;
+	std::vector<String>::iterator it;
+
+	it = find(WEEKDAYS_SHORT_NAMES.begin(), WEEKDAYS_SHORT_NAMES.end(), day);
+	
+	if (it != WEEKDAYS_SHORT_NAMES.end()) {
+		return it - WEEKDAYS_SHORT_NAMES.begin() + 1;
 	}
-	else if (day == "TU") {
-		return 2;
-	}
-	else if (day == "WE") {
-		return 3;
-	}
-	else if (day == "TH") {
-		return 4;
-	}
-	else if (day == "FR") {
-		return 5;
-	}
-	else if (day == "SA") {
-		return 6;
-	}
-	else if (day == "SU") {
-		return 7;
-	}
-	return -1;
+	else {
+		return -1;
+	}	
+}
+
+String Schedule::weekdayNumberToName(int day) {
+	return WEEKDAYS_SHORT_NAMES.at(day-1);
 }

@@ -79,19 +79,19 @@ void button1Press() {
 
 void button2Press() {
 	tone(BEEP_PIN, 4500, 200);
-	showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button2 press");
+	//showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button2 press");
 	Serial.println("switch 2 just pressed");
 }
 
 void button3Press() {
 	tone(BEEP_PIN, 4000, 200);
-	showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button3 press");
+	//showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button3 press");
 	Serial.println("switch 3 just pressed");
 }
 
 void button4Press() {
 	tone(BEEP_PIN, 3500, 200);
-	showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button4 press");	
+	//showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button4 press");	
 	Serial.println("switch 4 just pressed");
 }
 

@@ -44,4 +44,5 @@ void pumpOffWithSms();
 void pumpOffWithoutSms();
 void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, char *msg0 = "", char *msg1 = "");
 void sendMessage(char* message, bool isNeedSms = false, bool isSendToEachHost = false);
+
 #endif 

@@ -43,6 +43,7 @@ volatile int lastDH11_Temperature = 0;
 volatile int lastDH11_Humidity = 0;
 volatile int lastLightSensorState = 1;
 
+LcdContent::MODES _normalOrStopMode();
 
 void setup()
 {
@@ -125,7 +126,7 @@ void loop()
 		button2Press();
 		break;
 	case 2:
-		processSmsCommand("STOP");
+		processSmsCommand("STOP PLAN");
 		button3Press();
 		break;
 	case 3:
@@ -157,7 +158,7 @@ void threadEvery1sAction() {
 
 
 void threadEvery5sAction() {
-	checkIncomingSMS();	
+	//checkIncomingSMS();	
 	lastDH11_Temperature = dh11.readHumidity();
 	lastDH11_Humidity = dh11.readTemperature();
 	if (isnan(lastDH11_Temperature) || isnan(lastDH11_Humidity)) {
@@ -266,7 +267,7 @@ void pumpOn(bool isNeedSms = false) {
 		lcdLightOn(5000);
 
 		if (waterLevel_1 == LOW) {
-			sendMessage("Warning! Can't start watering. No water.", true, true);
+			sendMessage("Warning! Can't start watering. No water.", isNeedSms, true);
 			showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xcd\xe5\xeb\xfc\xe7\xff! \xcd\xe5\xf2 \xe2\xee\xe4\xfb");
 			return;
 		}
@@ -274,7 +275,7 @@ void pumpOn(bool isNeedSms = false) {
 		lcdContent.Mode = LcdContent::WATERING;
 		digitalWrite(RELAY1_PIN, LOW);
 		pumpOnTimeStamp = millis();
-		pumpOffTimerId = pumpOffTimer.setTimeout((unsigned long)watering_internal * 1000L, isNeedSms ? pumpOffWithSms : pumpOffWithoutSms);
+		pumpOffTimerId = pumpOffTimer.setTimeout((unsigned long)watering_internal * 1000L, isNeedSms ? pumpOffWithSms : pumpOffWithoutSms);		
 		sendMessage("Watering start.", isNeedSms);
 	}
 
@@ -284,7 +285,7 @@ void pumpOnWithSms() {
 	pumpOn(true);
 }
 
-void pumpOnWithoutSms() {
+void pumpOnWithoutSms() {	
 	pumpOn(false);
 }
 
@@ -293,7 +294,7 @@ void pumpOff(bool isNeedSms = false) {
 	if (pump_state != PUMP_STATES::WAITING) {
 		lcdLightOn(5000);
 		pump_state = PUMP_STATES::WAITING;
-		lcdContent.Mode = LcdContent::NORMAL;
+		lcdContent.Mode = _normalOrStopMode();
 		digitalWrite(RELAY1_PIN, HIGH);
 		sendMessage("Watering finish.", isNeedSms);
 	}
@@ -314,7 +315,7 @@ void pumpOffEmergency() {
 	if (pump_state != PUMP_STATES::WAITING) {
 		lcdLightOn(5000);
 		pump_state = PUMP_STATES::WAITING;
-		lcdContent.Mode = LcdContent::NORMAL;
+		lcdContent.Mode = _normalOrStopMode();
 		digitalWrite(RELAY1_PIN, HIGH);
 		sendMessage("Warning! Emergency stop watering. No water.", true, true);
 		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xd1\xf2\xee\xef! \xcd\xe5\xf2 \xe2\xee\xe4\xfb!");
@@ -358,9 +359,13 @@ void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, c
 void hideLcdMessage() {
 	lcdMessageTimer.deleteTimer(lcdMessageTimerId);
 	if (lcdContent.Mode == LcdContent::MESSAGE || lcdContent.Mode == LcdContent::MESSAGE_HALF)
-		lcdContent.Mode = taskWateringId == -1 ? LcdContent::STOP : LcdContent::NORMAL;
+		lcdContent.Mode = _normalOrStopMode();
 	lcdContentBuilder();
 	lcdRunner();
+}
+
+LcdContent::MODES _normalOrStopMode() {
+	return taskWateringId == -1 ? LcdContent::STOP : LcdContent::NORMAL;
 }
 
 void lcdRunner() {
@@ -387,7 +392,7 @@ String distanceFormat(unsigned long distance_in_second) {
 	distance_in_second /= 24;
 	int d = distance_in_second;
 
-	// Serial.println("d: " + String(d) + "  h:" + String(h) + "  m:" + String(m) + +"  s:" + String(s));
+	//Serial.println("d: " + String(d) + "  h:" + String(h) + "  m:" + String(m) + +"  s:" + String(s));
 
 	String _d = d < 10 ? "0" + String(d) : String(d);
 	String _h = h < 10 ? "0" + String(h) : String(h);
@@ -474,12 +479,16 @@ void processSmsCommand(String smsText) {
 		else {
 			schedule.changeTaskTime(taskWateringId, timeplan);
 		}
+		String message = "Ok. Watering timeplan is ["+ schedule.getTaskTimeplan(taskWateringId)+"]";		
+		sendMessage((char*)message.c_str(), true);
 	}
-	else if (smsText.indexOf("STOP") != -1 || smsText.indexOf("STOP") != -1)
+	else if (smsText.indexOf("STOP PLAN") != -1 || smsText.indexOf("STOPPLAN") != -1)
 	{
-		Serial.println("SMS command: STOP");
+		Serial.println("SMS command: STOP PLAN");
 		schedule.removeTask(taskWateringId);
 		taskWateringId = -1;
+		lcdContent.Mode = lcdContent.Mode == LcdContent::NORMAL ?  LcdContent::STOP : lcdContent.Mode;		
+		sendMessage("Ok. Watering timeplan cleared", true);
 	}
 
 };
@@ -507,8 +516,7 @@ void sendMessage(char* message, bool isNeedSms = false, bool isSendToEachHost = 
 	}
 
 	char* fullMessage = addTimePrefix(message);
-	Serial.println("\tsendMessage: " + String(isNeedSms ? "with sms" : "no sms") + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n\t" + fullMessage);
-
+	Serial.println("\tsendMessage: " + String(isNeedSms ? "with sms " : "no sms ") + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n\t" + fullMessage);
 	if (!isNeedSms) {
 		return;
 	}
