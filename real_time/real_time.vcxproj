@@ -80,6 +80,8 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Buttons.h" />
+    <ClInclude Include="Constans.h" />
     <ClInclude Include="LcdContent.h">
       <FileType>CppCode</FileType>
     </ClInclude>

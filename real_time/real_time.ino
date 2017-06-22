@@ -125,12 +125,10 @@ void loop()
 	case 1:
 		button2Press();
 		break;
-	case 2:
-		processSmsCommand("STOP PLAN");
+	case 2:	
 		button3Press();
 		break;
-	case 3:
-		processSmsCommand("START AT TH, 0:14");
+	case 3:		
 		button4Press();
 		break;
 	}
@@ -158,7 +156,7 @@ void threadEvery1sAction() {
 
 
 void threadEvery5sAction() {
-	//checkIncomingSMS();	
+	checkIncomingSMS();	
 	lastDH11_Temperature = dh11.readHumidity();
 	lastDH11_Humidity = dh11.readTemperature();
 	if (isnan(lastDH11_Temperature) || isnan(lastDH11_Humidity)) {
@@ -424,9 +422,10 @@ String distanceFormat(unsigned long distance_in_second) {
 	return String(result);
 }
 
-
+int rrr = 0;
 void checkIncomingSMS() {
-
+	Serial.println("checkIncomingSMS: " +String(rrr));
+	rrr++;
 	String textSms = GSM.readSms(1);
 	if (textSms && textSms.length()) {
 		String numberSms = GSM.getNumberSms(1);
@@ -451,6 +450,7 @@ void processSmsCommand(String smsText) {
 	if (smsText.indexOf("HELP") != -1)
 	{
 		Serial.println("SMS command: HELP");
+		sendMessage("PUMP ON\r\nPUMP OFF\r\nSTART AT MO TU WE TH FR SA SU, 12:59:00\r\nHELP", true);
 	}
 	else if (smsText.indexOf("PUMP ON") != -1 || smsText.indexOf("PUMPON") != -1)
 	{
