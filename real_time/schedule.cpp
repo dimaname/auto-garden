@@ -48,7 +48,6 @@ int Schedule::addTask(String timeplan, void callback()) {
 		timePartsVector = getTimeFromTimeplan(timeplan);
 		daysOfWeekVector = getDaysFromTimeplan(timeplan);
 	}
-
 	items.push_back(ScheduleItem(type, daysOfWeekVector, timePartsVector[0], timePartsVector[1], timePartsVector[2], callback));
 	return items.size() - 1;
 };
@@ -82,8 +81,13 @@ void Schedule::changeTaskTime(int taskId, String timeplan) {
 String Schedule::getTaskTimeplan(int taskId) {
 	ScheduleItem &task = items.at(taskId);
 	String timeplan = "";
-	for (std::vector<int>::iterator it = task.weekdays.begin(); it != task.weekdays.end(); ++it) {
-		timeplan += weekdayNumberToName(*it);
+	if (task.weekdays.size()) {
+		for (std::vector<int>::iterator it = task.weekdays.begin(); it != task.weekdays.end(); ++it) {
+			timeplan += weekdayNumberToName(*it);
+		}
+	}
+	else {
+		timeplan = "Everyday";
 	}
 	String hour = task.hour < 10 ? "0" + String(task.hour) : String(task.hour);
 	String minute = task.minute < 10 ? "0" + String(task.minute) : String(task.minute);
@@ -153,7 +157,7 @@ vector<int> Schedule::getDaysFromTimeplan(String timeplan) {
 	String day;
 	vector<int> ret;
 	do {
-		int dayNumber = weekdayNameToNumber(daysPart.substring(startPos, spacePos));	
+		int dayNumber = weekdayNameToNumber(daysPart.substring(startPos, spacePos));
 		if (dayNumber != -1) {
 			ret.push_back(dayNumber);
 		}
@@ -193,15 +197,15 @@ int Schedule::weekdayNameToNumber(String day) {
 	std::vector<String>::iterator it;
 
 	it = find(WEEKDAYS_SHORT_NAMES.begin(), WEEKDAYS_SHORT_NAMES.end(), day);
-	
+
 	if (it != WEEKDAYS_SHORT_NAMES.end()) {
 		return it - WEEKDAYS_SHORT_NAMES.begin() + 1;
 	}
 	else {
 		return -1;
-	}	
+	}
 }
 
 String Schedule::weekdayNumberToName(int day) {
-	return WEEKDAYS_SHORT_NAMES.at(day-1);
+	return WEEKDAYS_SHORT_NAMES.at(day - 1);
 }

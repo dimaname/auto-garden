@@ -128,7 +128,7 @@ void loop()
 	case 2:	
 		button3Press();
 		break;
-	case 3:		
+	case 3:	
 		button4Press();
 		break;
 	}
@@ -156,13 +156,14 @@ void threadEvery1sAction() {
 
 
 void threadEvery5sAction() {
-	checkIncomingSMS();	
+	checkIncomingSMS();
 	lastDH11_Temperature = dh11.readHumidity();
 	lastDH11_Humidity = dh11.readTemperature();
+	
 	if (isnan(lastDH11_Temperature) || isnan(lastDH11_Humidity)) {
-		Serial.println("Failed to read from DHT sensor!");
-		return;
+		Serial.println("Failed to read from DHT sensor!");		
 	}
+
 }
 
 void timer1_action() {
@@ -450,7 +451,7 @@ void processSmsCommand(String smsText) {
 	if (smsText.indexOf("HELP") != -1)
 	{
 		Serial.println("SMS command: HELP");
-		sendMessage("PUMP ON\r\nPUMP OFF\r\nSTART AT MO TU WE TH FR SA SU, 12:59:00\r\nHELP", true);
+		sendMessage("\r\nHELP\r\nPUMP ON\r\nPUMP OFF\r\nSTART AT MO TU WE TH FR SA SU, HH:MM:SS", true);
 	}
 	else if (smsText.indexOf("PUMP ON") != -1 || smsText.indexOf("PUMPON") != -1)
 	{
@@ -539,7 +540,7 @@ char* addTimePrefix(char* str) {
 	int bufferSize = strlen(_timeStr) + strlen(str) + 2;
 	char* concatString = new char[bufferSize];
 	strcpy(concatString, _timeStr);
-	strcat(concatString, " ");
+	strcat(concatString, "\r\n");
 	strcat(concatString, str);
 	return concatString;
 }
