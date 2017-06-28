@@ -13,16 +13,13 @@
 #include <Sim800l.h>
 
 
-
 Thread threadEvery1s = Thread();
 Thread threadEvery5s = Thread();
 
 
-
-
 LiquidCrystal LCD16x2(LCD_RS_ORANGE, LCD_E_YELLOW, LCD_D4_GREEN, LCD_D5_BLUE, LCD_D6_PUPRPLE, LCD_D7_GRAY);
 LcdContent lcdContent = LcdContent();
-SimpleTimer lcdMessageTimer, lcdLightTimer, pumpOffTimer;
+SimpleTimer lcdMessageTimer, lcdLightTimer, pumpOffTimer, timeout;
 
 int pumpOffTimerId, lcdLightTimerId, lcdMessageTimerId;
 unsigned long watering_internal = 30;   // время полива
@@ -59,7 +56,7 @@ void setup()
 
 	Timer1.initialize(1000000);
 	Timer1.attachInterrupt(timer1_action);
-	
+
 
 	////// датчик потока
    // pinMode(WATER_FLOW_PIN, INPUT);
@@ -97,7 +94,7 @@ void setup()
 	//"MO TU WE TH FR SA SU, 15:32:00"
 	//taskWateringId = schedule.addTask("18:19:00", pumpOn);
 	//lcdContent.Mode = LcdContent::NORMAL;
-	
+
 	pumpOff();
 	threadEvery5s.run();
 }
@@ -113,7 +110,7 @@ void loop()
 		threadEvery5s.run(); // запускаем поток
 
 	pumpOffTimer.run();
-
+	timeout.run();
 	// гасим дребезг контактов
 	byte pressedButton = getPressedButton();
 
@@ -125,17 +122,14 @@ void loop()
 	case 1:
 		button2Press();
 		break;
-	case 2:	
+	case 2:
 		button3Press();
 		break;
-	case 3:	
-		button4Press();
+	case 3:
+		button4Press();		
 		break;
 	}
 
-
-	//	tone(22, 2000, 500);
-	//tone1.play(NOTE_B2,1000);
 
 }
 
@@ -159,9 +153,9 @@ void threadEvery5sAction() {
 	checkIncomingSMS();
 	lastDH11_Temperature = dh11.readHumidity();
 	lastDH11_Humidity = dh11.readTemperature();
-	
+
 	if (isnan(lastDH11_Temperature) || isnan(lastDH11_Humidity)) {
-		Serial.println("Failed to read from DHT sensor!");		
+		Serial.println("Failed to read from DHT sensor!");
 	}
 
 }
@@ -274,7 +268,7 @@ void pumpOn(bool isNeedSms = false) {
 		lcdContent.Mode = LcdContent::WATERING;
 		digitalWrite(RELAY1_PIN, LOW);
 		pumpOnTimeStamp = millis();
-		pumpOffTimerId = pumpOffTimer.setTimeout((unsigned long)watering_internal * 1000L, isNeedSms ? pumpOffWithSms : pumpOffWithoutSms);		
+		pumpOffTimerId = pumpOffTimer.setTimeout((unsigned long)watering_internal * 1000L, isNeedSms ? pumpOffWithSms : pumpOffWithoutSms);
 		sendMessage("Watering start.", isNeedSms);
 	}
 
@@ -284,7 +278,7 @@ void pumpOnWithSms() {
 	pumpOn(true);
 }
 
-void pumpOnWithoutSms() {	
+void pumpOnWithoutSms() {
 	pumpOn(false);
 }
 
@@ -308,6 +302,9 @@ void pumpOffWithoutSms() {
 	pumpOff(false);
 }
 
+void sendMessageEmergencyPumpOff() {
+	sendMessage("Warning! Emergency stop watering. No water.", true, true);
+}
 
 void pumpOffEmergency() {
 	pumpOffTimer.deleteTimer(pumpOffTimerId);
@@ -316,7 +313,7 @@ void pumpOffEmergency() {
 		pump_state = PUMP_STATES::WAITING;
 		lcdContent.Mode = _normalOrStopMode();
 		digitalWrite(RELAY1_PIN, HIGH);
-		sendMessage("Warning! Emergency stop watering. No water.", true, true);
+		timeout.setTimeout(1000, sendMessageEmergencyPumpOff);		
 		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xd1\xf2\xee\xef! \xcd\xe5\xf2 \xe2\xee\xe4\xfb!");
 	}
 }
@@ -425,7 +422,7 @@ String distanceFormat(unsigned long distance_in_second) {
 
 int rrr = 0;
 void checkIncomingSMS() {
-	Serial.println("checkIncomingSMS: " +String(rrr));
+	Serial.println("checkIncomingSMS: " + String(rrr));
 	rrr++;
 	String textSms = GSM.readSms(1);
 	if (textSms && textSms.length()) {
@@ -444,6 +441,9 @@ void checkIncomingSMS() {
 		GSM.delAllSms();
 	}
 }
+void sendMessageHelp() {
+	sendMessage("\r\nHELP\r\nPUMP ON\r\nPUMP OFF\r\nSTART AT MO TU WE TH FR SA SU, HH:MM:SS\r\nSTOP PLAN", true);
+}
 
 void processSmsCommand(String smsText) {
 	smsText.toUpperCase();
@@ -451,7 +451,7 @@ void processSmsCommand(String smsText) {
 	if (smsText.indexOf("HELP") != -1)
 	{
 		Serial.println("SMS command: HELP");
-		sendMessage("\r\nHELP\r\nPUMP ON\r\nPUMP OFF\r\nSTART AT MO TU WE TH FR SA SU, HH:MM:SS", true);
+		timeout.setTimeout(1000, sendMessageHelp);
 	}
 	else if (smsText.indexOf("PUMP ON") != -1 || smsText.indexOf("PUMPON") != -1)
 	{
@@ -470,8 +470,11 @@ void processSmsCommand(String smsText) {
 	}
 	else if (smsText.indexOf("START AT") != -1 || smsText.indexOf("STARTAT") != -1)
 	{
+
 		Serial.println("SMS command: START AT");
-		String timeplan = smsText.substring(8);
+		int timeplanBeginIndex = smsText.indexOf("START AT");
+		timeplanBeginIndex = timeplanBeginIndex == -1 ? smsText.indexOf("STARTAT") + 8 : timeplanBeginIndex + 9;
+		String timeplan = smsText.substring(timeplanBeginIndex);
 		timeplan.trim();
 		if (taskWateringId == -1) {
 			taskWateringId = schedule.addTask(timeplan, pumpOnWithSms);
@@ -480,15 +483,15 @@ void processSmsCommand(String smsText) {
 		else {
 			schedule.changeTaskTime(taskWateringId, timeplan);
 		}
-		String message = "Ok. Watering timeplan is ["+ schedule.getTaskTimeplan(taskWateringId)+"]";		
-		sendMessage((char*)message.c_str(), true);
+		String message = "Ok. Watering timeplan is [" + schedule.getTaskTimeplan(taskWateringId) + "]";
+	    sendMessage((char*)message.c_str(), true);		
 	}
 	else if (smsText.indexOf("STOP PLAN") != -1 || smsText.indexOf("STOPPLAN") != -1)
 	{
 		Serial.println("SMS command: STOP PLAN");
 		schedule.removeTask(taskWateringId);
 		taskWateringId = -1;
-		lcdContent.Mode = lcdContent.Mode == LcdContent::NORMAL ?  LcdContent::STOP : lcdContent.Mode;		
+		lcdContent.Mode = lcdContent.Mode == LcdContent::NORMAL ? LcdContent::STOP : lcdContent.Mode;
 		sendMessage("Ok. Watering timeplan cleared", true);
 	}
 
