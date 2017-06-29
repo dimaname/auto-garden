@@ -61,7 +61,7 @@ DHT dh11(DH11_PIN, DHT11);
 volatile int lastDH11_Temperature = 0;
 volatile int lastDH11_Humidity = 0;
 volatile int lastLightSensorState = 1;
-
+volatile int waterLevel_1 = 0;
 
 
 

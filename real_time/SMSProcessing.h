@@ -15,7 +15,7 @@ void processSmsCommand(String smsText) {
 	if (smsText.indexOf("HELP") != -1)
 	{
 		Serial.println("SMS command: HELP");
-		sendMessage("\r\nHELP\r\nPUMP ON\r\nPUMP OFF\r\nSTART AT MO TU WE TH FR SA SU, HH:MM:SS\r\nSTOP PLAN", true);
+		sendMessage("\r\nHELP\r\nPUMP ON\r\nPUMP OFF\r\nSTART AT MO TU WE TH FR SA SU, HH:MM:SS\r\nSTOP PLAN\r\nINFO", true);
 	}
 	else if (smsText.indexOf("PUMP ON") != -1 || smsText.indexOf("PUMPON") != -1)
 	{
@@ -61,8 +61,12 @@ void processSmsCommand(String smsText) {
 	else if (smsText.indexOf("INFO") != -1)
 	{
 		Serial.println("SMS command: INFO");
-
-		sendMessage("INFO.", true);
+		String message = "Temperature: " + String(lastDH11_Temperature) + "C\r\n";
+		message += "Humidity: " + String(lastDH11_Humidity) + "%\r\n";
+		message += "Water: " + String(waterLevel_1 == HIGH ? "ok"  : "no water" ) + "\r\n";
+		message += "Pump: " + String( pump_state == PUMP_STATES::WAITING ? "stop": "work" ) + "\r\n";
+		message += "Watering timeplan: " + String(taskWateringId != -1 ? "[" + String(schedule.getTaskTimeplan(taskWateringId)) + "]"  : "no plan") + "\r\n";
+		sendMessage((char*)message.c_str(), true);
 	}
 
 };

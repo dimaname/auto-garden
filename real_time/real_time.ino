@@ -22,7 +22,7 @@ int pumpOffTimerId, lcdLightTimerId, lcdMessageTimerId;
 
 unsigned long pumpOnTimeStamp = 0;
 const float waterFlowK = 52;   // подобпать коэф. на месте. (дома на 5 литрах было ~85 или 52)
-volatile int waterLevel_1 = 0;
+
 
 
 void setup()
@@ -31,12 +31,8 @@ void setup()
 	//GSM.begin();
 
 	if (gsm.begin(19200)) {
-		Serial.println("\n GSM STARTED");
-
-		if (GSM.DeleteAllSMS()) {
-			Serial.print("\n SMS ALL DELETED");
-		}
-
+		Serial.println("\nGSM STARTED");
+		GSM.DeleteAllSMS();		
 
 	}
 
@@ -87,7 +83,7 @@ void setup()
 
 	// после создания таска taskWateringId нужно перевести дисплей в режим NORMAL
 	//"MO TU WE TH FR SA SU, 15:32:00"
-	//taskWateringId = schedule.addTask("18:19:00", pumpOn);
+	//taskWateringId = schedule.addTask("18:19:00", pumpOnWithoutSms);
 	//lcdContent.Mode = LcdContent::NORMAL;
 
 	pumpOff();
@@ -123,7 +119,7 @@ void loop()
 		button3Press();		
 		break;
 	case 3:
-		button4Press();		
+		button4Press();
 		break;
 	}
 
@@ -149,7 +145,7 @@ void threadEvery1sAction() {
 
 
 
-void threadEvery5sAction() {
+void threadEvery5sAction() {	
 	lastDH11_Temperature = dh11.readHumidity();
 	lastDH11_Humidity = dh11.readTemperature();
 	checkIncomingSMS();
@@ -430,8 +426,7 @@ void sendMessage(char* message, bool isNeedSms = false, bool isSendToEachHost = 
 		return;
 	}
 
-	
-	Serial.println("\tsendMessage: " + String(isNeedSms ? "with sms " : "no sms ") + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n\t" + String(message));
+	Serial.println("\nsendMessage: " + String(isNeedSms ? "with sms " : "no sms ") + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n\t" + String(message));
 	if (!isNeedSms) {
 		return;
 	}

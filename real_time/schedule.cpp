@@ -49,10 +49,6 @@ int Schedule::addTask(String timeplan, void callback()) {
 		daysOfWeekVector = getDaysFromTimeplan(timeplan);
 	}
 
-	Serial.println(timePartsVector[0]);
-	Serial.println( timePartsVector[1]);
-	Serial.println( timePartsVector[2]);
-
 	items.push_back(ScheduleItem(type, daysOfWeekVector, timePartsVector[0], timePartsVector[1], timePartsVector[2], callback));
 	return items.size() - 1;
 };
@@ -177,8 +173,7 @@ vector<int> Schedule::getDaysFromTimeplan(String timeplan) {
 vector<int> Schedule::getTimeFromTimeplan(String timeplan) {
 	int comPos = timeplan.indexOf(",");
 	String timePart = timeplan.substring(comPos + 1);
-	timePart.trim();
-	Serial.println("                        timePart " + timePart);
+	timePart.trim();	
 	vector<int> ret;
 	if (timePart.length() != 0) {
 		int startPos = 0;
