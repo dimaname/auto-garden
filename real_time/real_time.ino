@@ -1,51 +1,46 @@
+#include <sms.h>
+#include "SIM900.h"
+#include <SoftwareSerial.h>
 #include <DHT.h>
 #include <TimerOne.h>
 #include <Thread.h>
 #include "LcdContent.h"
 #include "Schedule.h"
 #include "Buttons.h"
+#include "SMSProcessing.h"
 #include <functional>
-#include <LiquidCrystal.h>
 #include <Bounce2.h>
 #include <SimpleTimer.h>
 #include "Constans.h"
-#include <SoftwareSerial.h>
-#include <Sim800l.h>
 
-
+LcdContent::MODES _normalOrStopMode();
 Thread threadEvery1s = Thread();
 Thread threadEvery5s = Thread();
-
-
-LiquidCrystal LCD16x2(LCD_RS_ORANGE, LCD_E_YELLOW, LCD_D4_GREEN, LCD_D5_BLUE, LCD_D6_PUPRPLE, LCD_D7_GRAY);
-LcdContent lcdContent = LcdContent();
 SimpleTimer lcdMessageTimer, lcdLightTimer, pumpOffTimer, timeout;
 
 int pumpOffTimerId, lcdLightTimerId, lcdMessageTimerId;
-unsigned long watering_internal = 30;   // время полива
-unsigned long pumpOnTimeStamp = 0;
 
-String watering_animate[4] = { "\x97", "\x96", "\x95", "\x94" };
+unsigned long pumpOnTimeStamp = 0;
 const float waterFlowK = 52;   // подобпать коэф. на месте. (дома на 5 литрах было ~85 или 52)
 volatile int waterLevel_1 = 0;
 
 
-Sim800l GSM;
-char* TRUSTED_NUMBERS[] = { "79617638670" };
-int lastHostNumberIndex = 0;
-
-DHT dh11(DH11_PIN, DHT11);
-
-volatile int lastDH11_Temperature = 0;
-volatile int lastDH11_Humidity = 0;
-volatile int lastLightSensorState = 1;
-
-LcdContent::MODES _normalOrStopMode();
-
 void setup()
 {
 	Serial.begin(19200);
-	GSM.begin();
+	//GSM.begin();
+
+	if (gsm.begin(19200)) {
+		Serial.println("\n GSM STARTED");
+
+		if (GSM.DeleteAllSMS()) {
+			Serial.print("\n SMS ALL DELETED");
+		}
+
+
+	}
+
+
 
 	digitalWrite(RELAY1_PIN, HIGH);
 	pinMode(RELAY1_PIN, OUTPUT);
@@ -100,6 +95,7 @@ void setup()
 }
 
 
+
 void loop()
 {
 
@@ -108,6 +104,7 @@ void loop()
 
 	if (threadEvery5s.shouldRun())
 		threadEvery5s.run(); // запускаем поток
+		
 
 	pumpOffTimer.run();
 	timeout.run();
@@ -123,7 +120,7 @@ void loop()
 		button2Press();
 		break;
 	case 2:
-		button3Press();
+		button3Press();		
 		break;
 	case 3:
 		button4Press();		
@@ -132,6 +129,7 @@ void loop()
 
 
 }
+
 
 
 void threadEvery1sAction() {
@@ -143,6 +141,8 @@ void threadEvery1sAction() {
 		Serial.println(" LIGHT_SENSOR: " + String(lightSensorState));
 	}
 
+	Serial.print(schedule.timeStr);
+	Serial.println("\tTemperature: " + String(lastDH11_Temperature) + "C, Humidity: " + String(lastDH11_Humidity) + "%");
 
 	//calcWater();
 }
@@ -150,10 +150,9 @@ void threadEvery1sAction() {
 
 
 void threadEvery5sAction() {
-	checkIncomingSMS();
 	lastDH11_Temperature = dh11.readHumidity();
 	lastDH11_Humidity = dh11.readTemperature();
-
+	checkIncomingSMS();
 	if (isnan(lastDH11_Temperature) || isnan(lastDH11_Humidity)) {
 		Serial.println("Failed to read from DHT sensor!");
 	}
@@ -163,14 +162,12 @@ void threadEvery5sAction() {
 void timer1_action() {
 	schedule.tact();
 	checkWaterLevel();
-	Serial.print(schedule.timeStr);
 	lcdContentBuilder();
 	lcdRunner();
 }
 
 void lcdContentBuilder() {
 
-	Serial.println("\tTemperature: " + String(lastDH11_Temperature) + "C, Humidity: " + String(lastDH11_Humidity) + "%");
 	String addSpaceT = "", addSpaceH = "", animateframe, _first = "", _second = "";
 	if (lastDH11_Temperature < 10) {
 		addSpaceT = " ";
@@ -241,6 +238,7 @@ void rpm() {
 double totalWater = 0;
 unsigned long prevCallTime = 0;
 
+
 void calcWater() {
 
 	if (NbTopsFan != 0) {
@@ -254,6 +252,11 @@ void calcWater() {
 		sei();
 	}
 }
+
+LcdContent::MODES _normalOrStopMode() {
+	return taskWateringId == -1 ? LcdContent::STOP : LcdContent::NORMAL;
+}
+
 
 void pumpOn(bool isNeedSms = false) {
 	if (pump_state != PUMP_STATES::WORKING) {
@@ -313,7 +316,7 @@ void pumpOffEmergency() {
 		pump_state = PUMP_STATES::WAITING;
 		lcdContent.Mode = _normalOrStopMode();
 		digitalWrite(RELAY1_PIN, HIGH);
-		timeout.setTimeout(1000, sendMessageEmergencyPumpOff);		
+		timeout.setTimeout(1000, sendMessageEmergencyPumpOff);
 		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xd1\xf2\xee\xef! \xcd\xe5\xf2 \xe2\xee\xe4\xfb!");
 	}
 }
@@ -360,9 +363,7 @@ void hideLcdMessage() {
 	lcdRunner();
 }
 
-LcdContent::MODES _normalOrStopMode() {
-	return taskWateringId == -1 ? LcdContent::STOP : LcdContent::NORMAL;
-}
+
 
 void lcdRunner() {
 	lcdMessageTimer.run();
@@ -420,96 +421,6 @@ String distanceFormat(unsigned long distance_in_second) {
 	return String(result);
 }
 
-int rrr = 0;
-void checkIncomingSMS() {
-	Serial.println("checkIncomingSMS: " + String(rrr));
-	rrr++;
-	String textSms = GSM.readSms(1);
-	if (textSms && textSms.length()) {
-		String numberSms = GSM.getNumberSms(1);
-		Serial.println("numberSms: " + numberSms);
-		Serial.println("textSms: " + textSms);
-
-		int numberIndex = numberIndexInTrustedList(numberSms);
-		if (numberIndex != -1) {
-			lastHostNumberIndex = numberIndex;
-			processSmsCommand(textSms);
-		}
-		else {
-			Serial.println("Not trusted number: " + numberSms);
-		}
-		GSM.delAllSms();
-	}
-}
-void sendMessageHelp() {
-	sendMessage("\r\nHELP\r\nPUMP ON\r\nPUMP OFF\r\nSTART AT MO TU WE TH FR SA SU, HH:MM:SS\r\nSTOP PLAN", true);
-}
-
-void processSmsCommand(String smsText) {
-	smsText.toUpperCase();
-
-	if (smsText.indexOf("HELP") != -1)
-	{
-		Serial.println("SMS command: HELP");
-		timeout.setTimeout(1000, sendMessageHelp);
-	}
-	else if (smsText.indexOf("PUMP ON") != -1 || smsText.indexOf("PUMPON") != -1)
-	{
-		Serial.println("SMS command: PUMP ON");
-		pumpOnWithSms();
-	}
-	else if (smsText.indexOf("PUMP OFF") != -1 || smsText.indexOf("PUMPOFF") != -1)
-	{
-		Serial.println("SMS command: PUMP OFF");
-		pumpOffWithSms();
-	}
-	else if (smsText.indexOf("LIGHT ON") != -1 || smsText.indexOf("LIGHTON") != -1)
-	{
-		Serial.println("SMS command: LIGHT ON");
-		Serial.println("LIGHT Off!");
-	}
-	else if (smsText.indexOf("START AT") != -1 || smsText.indexOf("STARTAT") != -1)
-	{
-
-		Serial.println("SMS command: START AT");
-		int timeplanBeginIndex = smsText.indexOf("START AT");
-		timeplanBeginIndex = timeplanBeginIndex == -1 ? smsText.indexOf("STARTAT") + 8 : timeplanBeginIndex + 9;
-		String timeplan = smsText.substring(timeplanBeginIndex);
-		timeplan.trim();
-		if (taskWateringId == -1) {
-			taskWateringId = schedule.addTask(timeplan, pumpOnWithSms);
-			lcdContent.Mode = LcdContent::NORMAL;
-		}
-		else {
-			schedule.changeTaskTime(taskWateringId, timeplan);
-		}
-		String message = "Ok. Watering timeplan is [" + schedule.getTaskTimeplan(taskWateringId) + "]";
-	    sendMessage((char*)message.c_str(), true);		
-	}
-	else if (smsText.indexOf("STOP PLAN") != -1 || smsText.indexOf("STOPPLAN") != -1)
-	{
-		Serial.println("SMS command: STOP PLAN");
-		schedule.removeTask(taskWateringId);
-		taskWateringId = -1;
-		lcdContent.Mode = lcdContent.Mode == LcdContent::NORMAL ? LcdContent::STOP : lcdContent.Mode;
-		sendMessage("Ok. Watering timeplan cleared", true);
-	}
-
-};
-
-
-int numberIndexInTrustedList(String number) {
-	unsigned length = sizeof(TRUSTED_NUMBERS) / sizeof(TRUSTED_NUMBERS[0]);
-	int result = -1;
-	for (int i = 0; i < length; i++)
-	{
-		if (number.endsWith(TRUSTED_NUMBERS[i])) {
-			result = i;
-			break;
-		}
-	}
-	return result;
-};
 
 
 
@@ -519,8 +430,8 @@ void sendMessage(char* message, bool isNeedSms = false, bool isSendToEachHost = 
 		return;
 	}
 
-	char* fullMessage = addTimePrefix(message);
-	Serial.println("\tsendMessage: " + String(isNeedSms ? "with sms " : "no sms ") + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n\t" + fullMessage);
+	
+	Serial.println("\tsendMessage: " + String(isNeedSms ? "with sms " : "no sms ") + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n\t" + String(message));
 	if (!isNeedSms) {
 		return;
 	}
@@ -529,21 +440,11 @@ void sendMessage(char* message, bool isNeedSms = false, bool isSendToEachHost = 
 		unsigned length = sizeof(TRUSTED_NUMBERS) / sizeof(TRUSTED_NUMBERS[0]);
 		for (int i = 0; i < length; i++)
 		{
-			GSM.sendSms(TRUSTED_NUMBERS[i], fullMessage);
+			sendSms(message, TRUSTED_NUMBERS[i]);
 		}
 	}
 	else {
-		GSM.sendSms(TRUSTED_NUMBERS[lastHostNumberIndex], fullMessage);
+		sendSms(message, TRUSTED_NUMBERS[lastHostNumberIndex]);
 	}
-
 }
 
-char* addTimePrefix(char* str) {
-	char* _timeStr = schedule.timeStr;
-	int bufferSize = strlen(_timeStr) + strlen(str) + 2;
-	char* concatString = new char[bufferSize];
-	strcpy(concatString, _timeStr);
-	strcat(concatString, "\r\n");
-	strcat(concatString, str);
-	return concatString;
-}

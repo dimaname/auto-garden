@@ -1,6 +1,6 @@
 #ifndef CONSTANS_H
 #define CONSTANS_H
-
+#include <LiquidCrystal.h>
 #define RELAY1_PIN 34
 #define RELAY2_PIN 32
 #define RELAY3_PIN 30
@@ -36,6 +36,16 @@ RTC clock;
 Schedule schedule(clock);
 int taskWateringId = -1;
 bool isDisabledGSM = false;
+char smsBuffer[160];
+char phoneBuffer[20];
+
+char* TRUSTED_NUMBERS[] = { "79617638670" };
+int lastHostNumberIndex = 0;
+SMSGSM GSM;
+
+unsigned long watering_internal = 300;   // время полива, секунд
+String watering_animate[4] = { "\x97", "\x96", "\x95", "\x94" };
+
 void pumpOn(bool isNeedSms = false);
 void pumpOff(bool isNeedSms = false);
 void pumpOnWithSms();
@@ -44,5 +54,15 @@ void pumpOffWithSms();
 void pumpOffWithoutSms();
 void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, char *msg0 = "", char *msg1 = "");
 void sendMessage(char* message, bool isNeedSms = false, bool isSendToEachHost = false);
+
+LiquidCrystal LCD16x2(LCD_RS_ORANGE, LCD_E_YELLOW, LCD_D4_GREEN, LCD_D5_BLUE, LCD_D6_PUPRPLE, LCD_D7_GRAY);
+LcdContent lcdContent = LcdContent();
+DHT dh11(DH11_PIN, DHT11);
+volatile int lastDH11_Temperature = 0;
+volatile int lastDH11_Humidity = 0;
+volatile int lastLightSensorState = 1;
+
+
+
 
 #endif 

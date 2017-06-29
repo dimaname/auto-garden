@@ -42,12 +42,17 @@ int Schedule::addTask(String timeplan, void callback()) {
 	vector<int> timePartsVector;
 	Schedule::TYPE type = getTimeplaneType(timeplan);
 	if (type == Schedule::TYPE::EveryDay) {
-		timePartsVector = getTimeFromTimeplan(timeplan);
+		timePartsVector = getTimeFromTimeplan(timeplan);	
 	}
 	else {
 		timePartsVector = getTimeFromTimeplan(timeplan);
 		daysOfWeekVector = getDaysFromTimeplan(timeplan);
 	}
+
+	Serial.println(timePartsVector[0]);
+	Serial.println( timePartsVector[1]);
+	Serial.println( timePartsVector[2]);
+
 	items.push_back(ScheduleItem(type, daysOfWeekVector, timePartsVector[0], timePartsVector[1], timePartsVector[2], callback));
 	return items.size() - 1;
 };
@@ -173,6 +178,7 @@ vector<int> Schedule::getTimeFromTimeplan(String timeplan) {
 	int comPos = timeplan.indexOf(",");
 	String timePart = timeplan.substring(comPos + 1);
 	timePart.trim();
+	Serial.println("                        timePart " + timePart);
 	vector<int> ret;
 	if (timePart.length() != 0) {
 		int startPos = 0;
@@ -185,6 +191,8 @@ vector<int> Schedule::getTimeFromTimeplan(String timeplan) {
 		ret.push_back(timePart.substring(startPos).toInt());
 	}
 	ret.resize(3);
+	
+
 	return ret;
 }
 
