@@ -7,6 +7,7 @@ class SMSGSM
 {
 	public:
     // SMS's methods 
+	char LastUSSDResponse[200];
     char SendSMS(char *number_str, char *message_str);
     char SendSMS(byte sim_phonebook_position, char *message_str);
     char IsSMSPresent(byte required_status);
@@ -16,7 +17,7 @@ class SMSGSM
                           byte first_authorized_pos, byte last_authorized_pos);
     char DeleteSMS(byte position);
 	bool DeleteAllSMS();
-	
+	char SendUSSD(char *number_str);
 };
 
 #endif

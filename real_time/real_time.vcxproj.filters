@@ -33,6 +33,9 @@
     <ClInclude Include="Constans.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SMSProcessing.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="schedule.cpp">

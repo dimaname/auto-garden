@@ -106,7 +106,7 @@ void loop()
 	timeout.run();
 	// гасим дребезг контактов
 	byte pressedButton = getPressedButton();
-
+	String ussd;
 	switch (pressedButton)
 	{
 	case 0:
@@ -116,10 +116,13 @@ void loop()
 		button2Press();
 		break;
 	case 2:
-		button3Press();		
+		button3Press();			
 		break;
 	case 3:
 		button4Press();
+		GSM.SendUSSD("*102#");
+	//	GSM.SendUSSD("*110*05#");
+		
 		break;
 	}
 
@@ -426,7 +429,7 @@ void sendMessage(char* message, bool isNeedSms = false, bool isSendToEachHost = 
 		return;
 	}
 
-	Serial.println("\nsendMessage: " + String(isNeedSms ? "with sms " : "no sms ") + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n\t" + String(message));
+	Serial.println("\nsendMessage: " + String(isNeedSms ? "with sms " : "no sms ") + String(TRUSTED_NUMBERS[lastHostNumberIndex]) + "\r\n\n" + String(message));
 	if (!isNeedSms) {
 		return;
 	}

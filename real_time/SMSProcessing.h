@@ -63,9 +63,9 @@ void processSmsCommand(String smsText) {
 		Serial.println("SMS command: INFO");
 		String message = "Temperature: " + String(lastDH11_Temperature) + "C\r\n";
 		message += "Humidity: " + String(lastDH11_Humidity) + "%\r\n";
-		message += "Water: " + String(waterLevel_1 == HIGH ? "ok"  : "no water" ) + "\r\n";
-		message += "Pump: " + String( pump_state == PUMP_STATES::WAITING ? "stop": "work" ) + "\r\n";
-		message += "Watering timeplan: " + String(taskWateringId != -1 ? "[" + String(schedule.getTaskTimeplan(taskWateringId)) + "]"  : "no plan") + "\r\n";
+		message += "Water: " + String(waterLevel_1 == HIGH ? "ok" : "no water") + "\r\n";
+		message += "Pump: " + String(pump_state == PUMP_STATES::WAITING ? "stop" : "work") + "\r\n";
+		message += "Watering timeplan: " + String(taskWateringId != -1 ? "[" + String(schedule.getTaskTimeplan(taskWateringId)) + "]" : "no plan") + "\r\n";
 		sendMessage((char*)message.c_str(), true);
 	}
 
@@ -93,9 +93,11 @@ void checkIncomingSMS() {
 	rrr++;
 
 	int numData = GSM.IsSMSPresent(SMS_UNREAD);
+	if (numData == -3) {
 
-	if (numData) {
-
+		Serial.println("\nLastUSSDResponse: " + String(GSM.LastUSSDResponse));
+	}
+	else if (numData) {
 		if (GSM.GetSMS(numData, phoneBuffer, smsBuffer, 160))
 		{
 			String smsText = String(smsBuffer);
