@@ -46,6 +46,11 @@ void setup()
 
 	digitalWrite(RELAY1_PIN, HIGH);
 	pinMode(RELAY1_PIN, OUTPUT);
+	digitalWrite(RELAY3_PIN, HIGH);
+	pinMode(RELAY3_PIN, OUTPUT);
+	digitalWrite(RELAY4_PIN, HIGH);
+	pinMode(RELAY4_PIN, OUTPUT);
+
 	pinMode(WATER_LEVEL_PIN, INPUT_PULLUP);
 	pinMode(LIGHT_SENSOR, INPUT);
 	pinMode(LCD_LIGHT_RED, OUTPUT);
@@ -88,10 +93,10 @@ void setup()
 
 
 
-	// после создания таска taskWateringId нужно перевести дисплей в режим NORMAL
+	// после создания таска taskWateringZone1Id нужно перевести дисплей в режим NORMAL
 	//"MO TU WE TH FR SA SU, 15:32:00"
-	//taskWateringId = schedule.addTask("18:19:00", pumpOnWithoutSms);
-	//saveTimeplanToEEPROM(0, taskWateringId);
+	//taskWateringZone1Id = schedule.addTask("18:19:00", pumpOnWithoutSms);
+	//saveTimeplanToEEPROM(0, taskWateringZone1Id);
 	//lcdContent.Mode = LcdContent::NORMAL;
 
 	pumpOff();
@@ -135,9 +140,9 @@ void loop()
 		break;
 	case 2:
 		button3Press();
-		taskWateringId = schedule.addTask("SU, 18:19:00", pumpOnWithoutSms);
-		saveTimeplanToEEPROM(0, taskWateringId);
-		lcdContent.Mode = LcdContent::NORMAL;
+		//taskWateringZone1Id = schedule.addTask("SU, 18:19:00", pumpOnWithoutSms);
+		//saveTimeplanToEEPROM(0, taskWateringZone1Id);
+		//lcdContent.Mode = LcdContent::NORMAL;
 		break;
 	case 3:
 		button4Press();
@@ -168,7 +173,7 @@ void EEEPROMRecovery() {
 		int seconds = EEPROMx.readInt(EEPROMx.getAddress(sizeof(int)));
 
 		schedule.items.push_back(Schedule::ScheduleItem((Schedule::TYPE)type, daysOfWeekVector, hours, minunes, seconds, pumpOnWithSms));
-		taskWateringId = schedule.items.size() - 1;		
+		taskWateringZone1Id = schedule.items.size() - 1;
 	}
 
 }
@@ -256,8 +261,14 @@ void timer1_action() {
 	lcdRunner();
 }
 
+int counter = 0;
+int lcd5timesUpdate = true;
 void lcdContentBuilder() {
-
+	counter++; 
+	if (counter == 5) {
+		lcd5timesUpdate = !lcd5timesUpdate;
+		counter = 0;
+	}
 	String addSpaceT = "", addSpaceH = "", animateframe, _first = "", _second = "";
 	if (lastDH11_Temperature < 10) {
 		addSpaceT = " ";
@@ -291,7 +302,13 @@ void lcdContentBuilder() {
 		break;
 	case  LcdContent::NORMAL:
 		_first = String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%";
-		_second = "    \xef\xf3\xf1\xea " + distanceFormat(schedule.timeLeftFor(taskWateringId));
+		if (lcd5timesUpdate) {
+			_second = "\xef\xf3\xf1\xea \x91S1 " + (taskWateringZone1Id == -1 ? "no plan" :distanceFormat(schedule.timeLeftFor(taskWateringZone1Id)) );
+		}
+		else {
+			_second = "\xef\xf3\xf1\xea \x90S2 " + (taskWateringZone2Id == -1 ? "no plan" : distanceFormat(schedule.timeLeftFor(taskWateringZone2Id)));
+		}
+	
 		break;
 
 	}
@@ -344,7 +361,7 @@ void calcWater() {
 }
 
 LcdContent::MODES _normalOrStopMode() {
-	return taskWateringId == -1 ? LcdContent::STOP : LcdContent::NORMAL;
+	return taskWateringZone1Id == -1 && taskWateringZone2Id == -1 ? LcdContent::STOP : LcdContent::NORMAL;
 }
 
 

@@ -68,12 +68,12 @@ byte getPressedButton() {
 
 void button1Press() {
 	tone(BEEP_PIN, 5000, 200);
-	if (pump_state != PUMP_STATES::WORKING) {	
-		pumpOnWithoutSms();	
+	if (pump_state != PUMP_STATES::WORKING) {
+		pumpOnWithoutSms();
 	}
-	else {		
-		pumpOffWithoutSms();		
-	}	
+	else {
+		pumpOffWithoutSms();
+	}
 	Serial.println("switch 1 just pressed");
 }
 
@@ -85,14 +85,37 @@ void button2Press() {
 
 void button3Press() {
 	tone(BEEP_PIN, 4000, 200);
-	//showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button3 press");
 	Serial.println("switch 3 just pressed");
+	if (isValveOpenZone1) {
+		Serial.println("rele HIGH");
+		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "Valve s1 closed ");
+		digitalWrite(RELAY3_PIN, HIGH);
+		isValveOpenZone1 = false;
+	}
+	else {
+		Serial.println("rele LOW");
+		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "Valve s1 opened ");
+		digitalWrite(RELAY3_PIN, LOW);
+		isValveOpenZone1 = true;
+	}
 }
 
 void button4Press() {
-	tone(BEEP_PIN, 3500, 200);
-	//showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button4 press");	
+	tone(BEEP_PIN, 3500, 200);	
 	Serial.println("switch 4 just pressed");
+	if (isValveOpenZone2) {
+		Serial.println("rele HIGH");
+		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "Valve s2 closed ");
+		digitalWrite(RELAY4_PIN, HIGH);
+		
+		isValveOpenZone2 = false;
+	}
+	else {		
+		Serial.println("rele LOW");
+		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "Valve s2 opened ");
+		digitalWrite(RELAY4_PIN, LOW);
+		isValveOpenZone2 = true;
+	}
 }
 
 

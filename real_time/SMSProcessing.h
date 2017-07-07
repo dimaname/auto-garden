@@ -40,26 +40,28 @@ void processSmsCommand(String smsText) {
 		timeplanBeginIndex = timeplanBeginIndex == -1 ? smsText.indexOf("STARTAT") + 8 : timeplanBeginIndex + 9;
 		String timeplan = smsText.substring(timeplanBeginIndex);
 		timeplan.trim();
-		if (taskWateringId == -1) {
-			taskWateringId = schedule.addTask(timeplan, pumpOnWithSms);
+		if (taskWateringZone1Id == -1) {
+			taskWateringZone1Id = schedule.addTask(timeplan, pumpOnWithSms);
 			//первый параметр это номер зоны полива
-			saveTimeplanToEEPROM(0,taskWateringId);
+			saveTimeplanToEEPROM(0, taskWateringZone1Id);
 			lcdContent.Mode = LcdContent::NORMAL;
 		}
 		else {
-			schedule.changeTaskTime(taskWateringId, timeplan);
-			saveTimeplanToEEPROM(0, taskWateringId);
+			schedule.changeTaskTime(taskWateringZone1Id, timeplan);
+			saveTimeplanToEEPROM(0, taskWateringZone1Id);
 		}
-		String message = "Ok. Watering timeplan is [" + schedule.getTaskTimeplan(taskWateringId) + "]";
+		String message = "Ok. Watering timeplan is [" + schedule.getTaskTimeplan(taskWateringZone1Id) + "]";
 		sendMessage((char*)message.c_str(), true);
 	}
 	else if (smsText.indexOf("STOP PLAN") != -1 || smsText.indexOf("STOPPLAN") != -1)
 	{
 		Serial.println("SMS command: STOP PLAN");
-		schedule.removeTask(taskWateringId);
+		schedule.removeTask(taskWateringZone1Id);
+		schedule.removeTask(taskWateringZone2Id);
 		clearTimeplanInEEPROM(0);
 		clearTimeplanInEEPROM(1);
-		taskWateringId = -1;
+		taskWateringZone1Id = -1;
+		taskWateringZone2Id = -1;
 		lcdContent.Mode = lcdContent.Mode == LcdContent::NORMAL ? LcdContent::STOP : lcdContent.Mode;
 		sendMessage("Ok. Watering timeplan cleared.", true);
 	}
@@ -70,7 +72,8 @@ void processSmsCommand(String smsText) {
 		message += "Humidity: " + String(lastDH11_Humidity) + "%\r\n";
 		message += "Water: " + String(waterLevel_1 == HIGH ? "ok" : "no water") + "\r\n";
 		message += "Pump: " + String(pump_state == PUMP_STATES::WAITING ? "stop" : "work") + "\r\n";
-		message += "Watering timeplan: " + String(taskWateringId != -1 ? "[" + String(schedule.getTaskTimeplan(taskWateringId)) + "]" : "no plan") + "\r\n";
+		message += "Watering timeplan zone 1: " + String(taskWateringZone1Id != -1 ? "[" + String(schedule.getTaskTimeplan(taskWateringZone1Id)) + "]" : "no plan") + "\r\n";
+		message += "Watering timeplan zone 2: " + String(taskWateringZone2Id != -1 ? "[" + String(schedule.getTaskTimeplan(taskWateringZone2Id)) + "]" : "no plan") + "\r\n";
 		message += "Sim balance: " + String(isBalanceData == true ? String(currentBalance)+" rub" : "no data") + "\r\n";
 		sendMessage((char*)message.c_str(), true);
 	}
@@ -100,11 +103,8 @@ double parseBalance(String ussdRespose) {
 	isBalanceData = true;
 }
 
-int k = 0;
-void checkIncomingSMS() {
-	Serial.println("checkIncomingSMS: " + String(k));
-	k++;
 
+void checkIncomingSMS() {
 	int type = GSM.checkGSM();
 	if (type == 1) {
 		parseBalance(String(GSM.LastUSSDResponse));

@@ -31,10 +31,13 @@
 
 enum PUMP_STATES { WAITING, WORKING };
 PUMP_STATES pump_state = PUMP_STATES::WAITING;
+bool isValveOpenZone1 = false;
+bool isValveOpenZone2 = false;
 
 RTC clock;
 Schedule schedule(clock);
-int taskWateringId = -1;
+int taskWateringZone1Id = -1;
+int taskWateringZone2Id = -1;
 bool isDisabledGSM = false;
 
 double SMS_COST = 1.5;
