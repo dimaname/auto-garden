@@ -98,12 +98,12 @@ void setup()
 	timer1_action();
 	threadEvery5s.run();
 
-	//for (int addr = 0; addr<300; addr++) { // для всех ячеек памяти (для Arduino UNO 1024)
+	//for (int addr = 0; addr<100; addr++) { // для всех ячеек памяти (для Arduino UNO 1024)
 	//	byte val = EEPROM.read(addr); // считываем 1 байт по адресу ячейки
 	//	Serial.print(addr); // выводим адрес в послед. порт 
 	//	Serial.print("\t"); // табуляция
 	//	Serial.println(val); // выводим значение в послед. порт
-	//}
+ //    }
 
 
 }
@@ -141,9 +141,7 @@ void loop()
 		break;
 	case 3:
 		button4Press();
-		//GSM.SendUSSD("#102#");
-		for (int i = 0; i < 512; i++)
-			EEPROM.write(i, 255);
+		//GSM.SendUSSD("#102#");		
 		break;
 	}
 
@@ -170,10 +168,8 @@ void EEEPROMRecovery() {
 		int seconds = EEPROMx.readInt(EEPROMx.getAddress(sizeof(int)));
 
 		schedule.items.push_back(Schedule::ScheduleItem((Schedule::TYPE)type, daysOfWeekVector, hours, minunes, seconds, pumpOnWithSms));
-		taskWateringId = schedule.items.size() - 1;
-		
+		taskWateringId = schedule.items.size() - 1;		
 	}
-
 
 }
 
@@ -186,9 +182,10 @@ void saveTimeplanToEEPROM(int positionOrderInMemory, int taskId) {
 		return;
 	}
 
-
+	clearTimeplanInEEPROM(positionOrderInMemory);
 	Schedule::ScheduleItem &task = schedule.items.at(taskId);
 	int structSize = sizeof(int) * 11;
+	// стартовая позиция в памяти + размер флагов(есть ли расписание) + размер сохраняемой структуры 
 	int structAddress = timelineStartPointerEEPROM + sizeof(byte) * 2 + structSize * positionOrderInMemory;
 	
 	// пишем признак того есть ли таймплан для зоны 1 или 2
@@ -207,6 +204,19 @@ void saveTimeplanToEEPROM(int positionOrderInMemory, int taskId) {
 	EEPROMx.writeInt(structAddress, task.second);
 };
 
+void clearTimeplanInEEPROM(int positionOrderInMemory) {
+	if (positionOrderInMemory > 1) {
+		Serial.println("FAIL positionOrderInMemory is max 1");
+		return;
+	}
+	int structSize = sizeof(int) * 11;				
+	int structAddress = timelineStartPointerEEPROM + sizeof(byte) * 2 + structSize * positionOrderInMemory;
+	EEPROMx.writeByte(timelineStartPointerEEPROM + sizeof(byte)*positionOrderInMemory, 0);
+	for (int i = structAddress; i < structAddress + structSize; i++) {
+		EEPROMx.writeByte(i, 255);			
+	}
+		
+}
 
 void threadEvery1sAction() {
 

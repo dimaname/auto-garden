@@ -55,7 +55,9 @@ void pumpOnWithoutSms();
 void pumpOffWithSms();
 void pumpOffWithoutSms();
 void EEEPROMRecovery();
-void saveTimeplanToEEPROM(int saveTimeplanToEEPROM, int taskId);
+void saveTimeplanToEEPROM(int positionOrderInMemory, int taskId);
+void clearTimeplanInEEPROM(int positionOrderInMemory);
+
 void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, char *msg0 = "", char *msg1 = "");
 void sendMessage(char* message, bool isNeedSms = false, bool isSendToEachHost = false);
 

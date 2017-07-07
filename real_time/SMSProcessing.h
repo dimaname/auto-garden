@@ -48,6 +48,7 @@ void processSmsCommand(String smsText) {
 		}
 		else {
 			schedule.changeTaskTime(taskWateringId, timeplan);
+			saveTimeplanToEEPROM(0, taskWateringId);
 		}
 		String message = "Ok. Watering timeplan is [" + schedule.getTaskTimeplan(taskWateringId) + "]";
 		sendMessage((char*)message.c_str(), true);
@@ -56,6 +57,8 @@ void processSmsCommand(String smsText) {
 	{
 		Serial.println("SMS command: STOP PLAN");
 		schedule.removeTask(taskWateringId);
+		clearTimeplanInEEPROM(0);
+		clearTimeplanInEEPROM(1);
 		taskWateringId = -1;
 		lcdContent.Mode = lcdContent.Mode == LcdContent::NORMAL ? LcdContent::STOP : lcdContent.Mode;
 		sendMessage("Ok. Watering timeplan cleared.", true);
