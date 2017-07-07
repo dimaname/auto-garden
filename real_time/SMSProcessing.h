@@ -15,7 +15,7 @@ void processSmsCommand(String smsText) {
 	if (smsText.indexOf("HELP") != -1)
 	{
 		Serial.println("SMS command: HELP");
-		sendMessage("\r\nHELP\r\nPUMP ON\r\nPUMP OFF\r\nSTART AT MO TU WE TH FR SA SU, HH:MM:SS\r\nSTOP PLAN\r\nINFO", true);
+		sendMessage("\r\nHELP\r\nPUMP ON\r\nPUMP OFF\r\nSTART AT [MO TU WE TH FR SA SU], [HH:MM:SS]\r\nSTOP PLAN\r\nINFO", true);
 	}
 	else if (smsText.indexOf("PUMP ON") != -1 || smsText.indexOf("PUMPON") != -1)
 	{
@@ -66,6 +66,7 @@ void processSmsCommand(String smsText) {
 		message += "Water: " + String(waterLevel_1 == HIGH ? "ok" : "no water") + "\r\n";
 		message += "Pump: " + String(pump_state == PUMP_STATES::WAITING ? "stop" : "work") + "\r\n";
 		message += "Watering timeplan: " + String(taskWateringId != -1 ? "[" + String(schedule.getTaskTimeplan(taskWateringId)) + "]" : "no plan") + "\r\n";
+		message += "Sim balance: " + String(isBalanceData == true ? String(currentBalance)+" rub" : "no data") + "\r\n";
 		sendMessage((char*)message.c_str(), true);
 	}
 
@@ -85,38 +86,51 @@ int numberIndexInTrustedList(String number) {
 	return result;
 };
 
-
+double parseBalance(String ussdRespose) {
+	int startIndex = ussdRespose.indexOf("balans");
+	int endIndex = ussdRespose.indexOf("r.");
+	if (startIndex == -1 || endIndex == -1)
+		return;
+	currentBalance = ussdRespose.substring(startIndex + 6, endIndex).toDouble();
+	isBalanceData = true;
+}
 
 int rrr = 0;
 void checkIncomingSMS() {
 	Serial.println("checkIncomingSMS: " + String(rrr));
 	rrr++;
 
-	int numData = GSM.IsSMSPresent(SMS_UNREAD);
-	if (numData == -3) {
-
-		Serial.println("\nLastUSSDResponse: " + String(GSM.LastUSSDResponse));
+	int type = GSM.checkGSM();
+	if (type == 1) {
+		parseBalance(String(GSM.LastUSSDResponse));
+		Serial.println("\nLast USSD response: " + String(GSM.LastUSSDResponse));
+		Serial.println("\nbalance is: " + String(currentBalance));
 	}
-	else if (numData) {
-		if (GSM.GetSMS(numData, phoneBuffer, smsBuffer, 160))
-		{
-			String smsText = String(smsBuffer);
-			String phoneNumber = String(phoneBuffer);
+	else if (type == 2) {
+		String phoneNumber = "", smsText = "";
+		String fullSMS = String(GSM.LastSMS);
+	
+		int startIndexPhone = fullSMS.indexOf("\"+")+2;
+		int lastIndexPhone = fullSMS.indexOf("\",", startIndexPhone);
+	
+		phoneNumber = fullSMS.substring(startIndexPhone, lastIndexPhone);
+	
+		int startIndexText = fullSMS.indexOf("\n", lastIndexPhone) +1;
+		smsText = fullSMS.substring(startIndexText);
+		
+		Serial.println("phoneNumber: " + phoneNumber);
+		Serial.println("smsText: " + smsText);
 
-			Serial.println("numberSms: " + String(phoneBuffer));
-			Serial.println("textSms: " + String(smsBuffer));
-
-			int numberIndex = numberIndexInTrustedList(phoneNumber);
-			if (numberIndex != -1) {
-				lastHostNumberIndex = numberIndex;
-				tone(BEEP_PIN, 2500, 500);
-				processSmsCommand(smsText);
-			}
-			else {
-				Serial.println("Not trusted number: " + phoneNumber);
-			}
-			GSM.DeleteSMS(numData);
+		int numberIndex = numberIndexInTrustedList(phoneNumber);
+		if (numberIndex != -1) {
+			lastHostNumberIndex = numberIndex;
+			tone(BEEP_PIN, 2500, 500);
+			processSmsCommand(smsText);
 		}
+		else {
+			Serial.println("Not trusted number: " + phoneNumber);
+		}
+
 	}
 }
 
@@ -136,10 +150,10 @@ char* addTimePrefix(char* str) {
 
 bool sendSms(char* smsText, char* phoneNumber) {
 	char* fullMessage = addTimePrefix(smsText);
-
 	int result = GSM.SendSMS(phoneNumber, fullMessage);
 	if (result == 1) {
 		Serial.println("\tsms was sent");
+		currentBalance -= SMS_COST;
 	}
 	return result == 1;
 }

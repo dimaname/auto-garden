@@ -159,82 +159,37 @@ an example of use:
 		  // and SMS text in sms_text
 		}
 **********************************************************/
-char SMSGSM::IsSMSPresent(byte required_status)
+char SMSGSM::checkGSM()
 {
 	char ret_val = -1;
-	char *p_char;
 	byte status;
 
 	if (CLS_FREE != gsm.GetCommLineStatus()) return (ret_val);
 	gsm.SetCommLineStatus(CLS_ATCMD);
-	ret_val = 0; // still not present
 
-	switch (required_status) {
-	case SMS_UNREAD:
-		gsm.SimpleWriteln("AT+CMGL=\"REC UNREAD\"");
-		break;
-	case SMS_READ:
-		gsm.SimpleWriteln("AT+CMGL=\"REC READ\"");
-		break;
-	case SMS_ALL:
-		gsm.SimpleWriteln("AT+CMGL=\"ALL\"");
-		break;
-	}
-
-	// 5 sec. for initial comm tmout
-	// and max. 1500 msec. for inter character timeout
-	gsm.RxInit(5000, 1500);
-	// wait response is finished
 	do {
-
-		if (gsm.IsStringReceived("OK")) {
-			// perfect - we have some response, but what:
-
-			// there is either NO SMS:
-			// <CR><LF>OK<CR><LF>
-
-			// or there is at least 1 SMS
-			// +CMGL: <index>,<stat>,<oa/da>,,[,<tooa/toda>,<length>]
-			// <CR><LF> <data> <CR><LF>OK<CR><LF>
-			status = RX_FINISHED;
-			break; // so finish receiving immediately and let's go to 
-				   // to check response 
-		}
 		status = gsm.IsRxFinished();
 	} while (status == RX_NOT_FINISHED);
 
+	//Serial.println((char *)gsm.comm_buf);
 
-
-	switch (status) {
-	case RX_TMOUT_ERR:
-		// response was not received in specific time
-		ret_val = -2;
-		break;
-
-	case RX_FINISHED:
-		// something was received but what was received?
-		// ---------------------------------------------
-		if (gsm.IsStringReceived("+CMGL:")) {
-
-			p_char = strchr((char *)gsm.comm_buf, ':');
-			if (p_char != NULL) {
-				ret_val = atoi(p_char + 1);
-			}
-		}
-		else if (gsm.IsStringReceived("+CUSD")) {
-			ret_val = -3;
-			strcpy(LastUSSDResponse, (char *)(gsm.comm_buf));	
-		}
-		else {
-			// other response like OK or ERROR
-			ret_val = 0;
-		}
-
-		// here we have gsm.WaitResp() just for generation tmout 20msec. in case OK was detected
-		// not due to receiving
-		gsm.WaitResp(20, 20);
-		break;
+	if (gsm.IsStringReceived("+CMT:")) {	
+		strcpy(LastSMS, (char *)(gsm.comm_buf));
+		ret_val = 2;
 	}
+	else if (gsm.IsStringReceived("+CUSD")) {		
+		strcpy(LastUSSDResponse, (char *)(gsm.comm_buf));
+		ret_val = 1;
+	}
+	else {
+		// other response like OK or ERROR
+		ret_val = 0;
+	}
+
+	// here we have gsm.WaitResp() just for generation tmout 20msec. in case OK was detected
+	// not due to receiving
+	gsm.WaitResp(20, 20);
+
 
 	gsm.SetCommLineStatus(CLS_FREE);
 	return (ret_val);
@@ -289,7 +244,7 @@ char SMSGSM::GetSMS(byte position, char *phone_number, char *SMS_text, byte max_
 	char *p_char;
 	char *p_char1;
 	byte len;
-
+	Serial.println("!!!!!!!!!!!!!!!!!! GetSMS");
 	if (position == 0) return (-3);
 	if (CLS_FREE != gsm.GetCommLineStatus()) return (ret_val);
 	gsm.SetCommLineStatus(CLS_ATCMD);
@@ -596,13 +551,15 @@ bool SMSGSM::DeleteAllSMS() {
 
 char SMSGSM::SendUSSD(char *number_str)
 {
-	char ret_val = -1;
-
+	char ret_val = -1;	
 	gsm.SetCommLineStatus(CLS_ATCMD);
-	gsm.SimpleWrite("ATD");
-	gsm.SimpleWrite(number_str);
-	gsm.SimpleWriteln(";");
-
+	char str[80];
+	strcpy(str, "AT+CUSD=1,\"");
+	strcat(str, number_str);
+	strcat(str, "\"");	
+	Serial.println("USSD: " + String(str));
+	gsm.SimpleWriteln(str);
+	
 	// 1000 msec. for initial comm tmout
 	// 50 msec. for inter character timeout
 	if (RX_FINISHED_STR_RECV == gsm.WaitResp(1000, 200, "OK")) {

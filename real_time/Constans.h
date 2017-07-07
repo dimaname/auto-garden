@@ -36,10 +36,12 @@ RTC clock;
 Schedule schedule(clock);
 int taskWateringId = -1;
 bool isDisabledGSM = false;
-char smsBuffer[160];
-char phoneBuffer[20];
 
-char* TRUSTED_NUMBERS[] = { "79617638670" };
+double SMS_COST = 1.5;
+double currentBalance = 999999;
+bool isBalanceData = false;
+int counter5second = 0;
+char* TRUSTED_NUMBERS[] = { "79617638670", "79068577144" };
 int lastHostNumberIndex = 0;
 SMSGSM GSM;
 

@@ -33,7 +33,9 @@ void setup()
 	if (gsm.begin(19200)) {
 		Serial.println("\nGSM STARTED");
 		GSM.DeleteAllSMS();		
-
+		delay(500);	
+		gsm.SendATCmdWaitResp("AT+CNMI=2,2", 1000, 50, "OK", 2);
+	
 	}
 
 
@@ -87,7 +89,9 @@ void setup()
 	//lcdContent.Mode = LcdContent::NORMAL;
 
 	pumpOff();
+	timer1_action();
 	threadEvery5s.run();
+
 }
 
 
@@ -106,7 +110,7 @@ void loop()
 	timeout.run();
 	// гасим дребезг контактов
 	byte pressedButton = getPressedButton();
-	String ussd;
+	
 	switch (pressedButton)
 	{
 	case 0:
@@ -116,12 +120,12 @@ void loop()
 		button2Press();
 		break;
 	case 2:
-		button3Press();			
+		button3Press();
+	
 		break;
 	case 3:
 		button4Press();
-		GSM.SendUSSD("*102#");
-	//	GSM.SendUSSD("*110*05#");
+		GSM.SendUSSD("#102#");	
 		
 		break;
 	}
@@ -152,10 +156,14 @@ void threadEvery5sAction() {
 	lastDH11_Temperature = dh11.readHumidity();
 	lastDH11_Humidity = dh11.readTemperature();
 	checkIncomingSMS();
+	if (counter5second >= 720 || !isBalanceData) {
+		GSM.SendUSSD("#102#");
+		counter5second = 0;
+	}
 	if (isnan(lastDH11_Temperature) || isnan(lastDH11_Humidity)) {
 		Serial.println("Failed to read from DHT sensor!");
 	}
-
+	counter5second++;
 }
 
 void timer1_action() {

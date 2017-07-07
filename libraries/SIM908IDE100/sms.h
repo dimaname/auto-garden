@@ -8,9 +8,10 @@ class SMSGSM
 	public:
     // SMS's methods 
 	char LastUSSDResponse[200];
+	char LastSMS[200];
     char SendSMS(char *number_str, char *message_str);
     char SendSMS(byte sim_phonebook_position, char *message_str);
-    char IsSMSPresent(byte required_status);
+    char checkGSM();
     char GetSMS(byte position, char *phone_number, char *SMS_text, byte max_SMS_len);
     
     char GetAuthorizedSMS(byte position, char *phone_number, char *SMS_text, byte max_SMS_len,
