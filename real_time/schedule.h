@@ -6,7 +6,6 @@
 #define LEN_TIME 12
 #define SECONDS_IN_DAY 86400L
 
-
 #include <Wire.h>
 #include <EEPROM.h>
 #include <TroykaRTC.h>
@@ -23,8 +22,6 @@ using namespace std;
 class Schedule {
 public:
 	enum TYPE { EveryDay, EveryWeek };
-private:
-
 
 	class ScheduleItem {
 	private:	
@@ -78,7 +75,7 @@ private:
 		}
 
 	};
-public:
+
 	Schedule(RTC);
 
 	static int weekday;
@@ -101,7 +98,7 @@ public:
 	vector<int> getDaysFromTimeplan(String);
 	vector<int>  getTimeFromTimeplan(String);
 	Schedule::TYPE getTimeplaneType(String);	
-	void Schedule::checkTasks();
+	void Schedule::checkTasks();	
 };
 
 

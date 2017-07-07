@@ -42,6 +42,8 @@ void processSmsCommand(String smsText) {
 		timeplan.trim();
 		if (taskWateringId == -1) {
 			taskWateringId = schedule.addTask(timeplan, pumpOnWithSms);
+			//первый параметр это номер зоны полива
+			saveTimeplanToEEPROM(0,taskWateringId);
 			lcdContent.Mode = LcdContent::NORMAL;
 		}
 		else {
@@ -95,10 +97,10 @@ double parseBalance(String ussdRespose) {
 	isBalanceData = true;
 }
 
-int rrr = 0;
+int k = 0;
 void checkIncomingSMS() {
-	Serial.println("checkIncomingSMS: " + String(rrr));
-	rrr++;
+	Serial.println("checkIncomingSMS: " + String(k));
+	k++;
 
 	int type = GSM.checkGSM();
 	if (type == 1) {
