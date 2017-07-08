@@ -1,6 +1,8 @@
 #ifndef CONSTANS_H
 #define CONSTANS_H
 #include <LiquidCrystal.h>
+
+
 #define RELAY1_PIN 34
 #define RELAY2_PIN 32
 #define RELAY3_PIN 30
@@ -31,8 +33,6 @@
 
 enum PUMP_STATES { WAITING, WORKING };
 PUMP_STATES pump_state = PUMP_STATES::WAITING;
-bool isValveOpenZone1 = false;
-bool isValveOpenZone2 = false;
 
 RTC clock;
 Schedule schedule(clock);
@@ -53,6 +53,8 @@ String watering_animate[4] = { "\x97", "\x96", "\x95", "\x94" };
 
 void pumpOn(bool isNeedSms = false);
 void pumpOff(bool isNeedSms = false);
+void wateringZone1();
+void wateringZone2();
 void pumpOnWithSms();
 void pumpOnWithoutSms();
 void pumpOffWithSms();
@@ -72,6 +74,9 @@ volatile int lastDH11_Humidity = 0;
 volatile int lastLightSensorState = 1;
 volatile int waterLevel_1 = 0;
 
+#include "Valve.h"
+Valve valveZone1;
+Valve valveZone2;
 
 
 #endif 

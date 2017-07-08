@@ -79,43 +79,20 @@ void button1Press() {
 
 void button2Press() {
 	tone(BEEP_PIN, 4500, 200);
-	//showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "button2 press");
+	
 	Serial.println("switch 2 just pressed");
 }
 
 void button3Press() {
 	tone(BEEP_PIN, 4000, 200);
 	Serial.println("switch 3 just pressed");
-	if (isValveOpenZone1) {
-		Serial.println("rele HIGH");
-		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "Valve s1 closed ");
-		digitalWrite(RELAY3_PIN, HIGH);
-		isValveOpenZone1 = false;
-	}
-	else {
-		Serial.println("rele LOW");
-		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "Valve s1 opened ");
-		digitalWrite(RELAY3_PIN, LOW);
-		isValveOpenZone1 = true;
-	}
+	valveZone1.toggleValve();
 }
 
 void button4Press() {
-	tone(BEEP_PIN, 3500, 200);	
+	tone(BEEP_PIN, 3500, 200);		
 	Serial.println("switch 4 just pressed");
-	if (isValveOpenZone2) {
-		Serial.println("rele HIGH");
-		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "Valve s2 closed ");
-		digitalWrite(RELAY4_PIN, HIGH);
-		
-		isValveOpenZone2 = false;
-	}
-	else {		
-		Serial.println("rele LOW");
-		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "Valve s2 opened ");
-		digitalWrite(RELAY4_PIN, LOW);
-		isValveOpenZone2 = true;
-	}
+	valveZone2.toggleValve();
 }
 
 

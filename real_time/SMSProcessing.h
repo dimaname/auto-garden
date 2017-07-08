@@ -8,14 +8,13 @@
 #endif
 #include "Constans.h"
 
-
 void processSmsCommand(String smsText) {
 	smsText.toUpperCase();
 
 	if (smsText.indexOf("HELP") != -1)
 	{
 		Serial.println("SMS command: HELP");
-		sendMessage("\r\nHELP\r\nPUMP ON\r\nPUMP OFF\r\nSTART AT [MO TU WE TH FR SA SU], [HH:MM:SS]\r\nSTOP PLAN\r\nINFO", true);
+		sendMessage("\r\nHELP\r\nPUMP ON\r\nPUMP OFF\r\nSTART AT [MO TU WE TH FR SA SU], [HH:MM:SS], S=[1,2]\r\nSTOP PLAN\r\nINFO", true);
 	}
 	else if (smsText.indexOf("PUMP ON") != -1 || smsText.indexOf("PUMPON") != -1)
 	{
@@ -34,23 +33,52 @@ void processSmsCommand(String smsText) {
 	}
 	else if (smsText.indexOf("START AT") != -1 || smsText.indexOf("STARTAT") != -1)
 	{
-
 		Serial.println("SMS command: START AT");
+		String message;
 		int timeplanBeginIndex = smsText.indexOf("START AT");
 		timeplanBeginIndex = timeplanBeginIndex == -1 ? smsText.indexOf("STARTAT") + 8 : timeplanBeginIndex + 9;
 		String timeplan = smsText.substring(timeplanBeginIndex);
 		timeplan.trim();
-		if (taskWateringZone1Id == -1) {
-			taskWateringZone1Id = schedule.addTask(timeplan, pumpOnWithSms);
-			//первый параметр это номер зоны полива
-			saveTimeplanToEEPROM(0, taskWateringZone1Id);
-			lcdContent.Mode = LcdContent::NORMAL;
+		int zonePartIndex = timeplan.indexOf("S=");
+		if (zonePartIndex == -1) {
+			message = "Fail. Not found zone parametr S. It must be S=1 or S=2. Use HELP sms for syntax tips.";
+			sendMessage((char*)message.c_str(), true);
+			return;
 		}
-		else {
-			schedule.changeTaskTime(taskWateringZone1Id, timeplan);
-			saveTimeplanToEEPROM(0, taskWateringZone1Id);
+		int zoneNumber = timeplan.substring(zonePartIndex + 2, zonePartIndex + 3).toInt();
+		timeplan = timeplan.substring(0, zonePartIndex);
+		timeplan.trim();
+		if (timeplan.endsWith(",")) {
+			timeplan.remove(timeplan.length() - 1);
 		}
-		String message = "Ok. Watering timeplan is [" + schedule.getTaskTimeplan(taskWateringZone1Id) + "]";
+		
+		if (zoneNumber == 1) {
+			if (taskWateringZone1Id == -1) {
+				taskWateringZone1Id = schedule.addTask(timeplan, wateringZone1);
+				//первый параметр это номер зоны полива
+				saveTimeplanToEEPROM(0, taskWateringZone1Id);
+				lcdContent.Mode = LcdContent::NORMAL;
+			}
+			else {
+				schedule.changeTaskTime(taskWateringZone1Id, timeplan);
+				saveTimeplanToEEPROM(0, taskWateringZone1Id);
+			}
+			message = "Ok. Watering timeplan for zone S=1 is [" + schedule.getTaskTimeplan(taskWateringZone1Id) + "]";
+		}
+
+		if (zoneNumber == 2) {
+			if (taskWateringZone2Id == -1) {
+				taskWateringZone2Id = schedule.addTask(timeplan, wateringZone2);
+				//первый параметр это номер зоны полива
+				saveTimeplanToEEPROM(1, taskWateringZone2Id);
+				lcdContent.Mode = LcdContent::NORMAL;
+			}
+			else {
+				schedule.changeTaskTime(taskWateringZone2Id, timeplan);
+				saveTimeplanToEEPROM(1, taskWateringZone2Id);
+			}
+			message = "Ok. Watering timeplan for zone S=2 is [" + schedule.getTaskTimeplan(taskWateringZone2Id) + "]";
+		}
 		sendMessage((char*)message.c_str(), true);
 	}
 	else if (smsText.indexOf("STOP PLAN") != -1 || smsText.indexOf("STOPPLAN") != -1)
@@ -74,7 +102,9 @@ void processSmsCommand(String smsText) {
 		message += "Pump: " + String(pump_state == PUMP_STATES::WAITING ? "stop" : "work") + "\r\n";
 		message += "Watering timeplan zone 1: " + String(taskWateringZone1Id != -1 ? "[" + String(schedule.getTaskTimeplan(taskWateringZone1Id)) + "]" : "no plan") + "\r\n";
 		message += "Watering timeplan zone 2: " + String(taskWateringZone2Id != -1 ? "[" + String(schedule.getTaskTimeplan(taskWateringZone2Id)) + "]" : "no plan") + "\r\n";
-		message += "Sim balance: " + String(isBalanceData == true ? String(currentBalance)+" rub" : "no data") + "\r\n";
+		message += "Watering time: " + String(watering_internal) + "sec\r\n";
+		message += "Sim balance: " + String(isBalanceData == true ? String(currentBalance) + " rub" : "no data") + "\r\n";
+		//ToDo сведения с расходомера
 		sendMessage((char*)message.c_str(), true);
 	}
 
@@ -114,15 +144,15 @@ void checkIncomingSMS() {
 	else if (type == 2) {
 		String phoneNumber = "", smsText = "";
 		String fullSMS = String(GSM.LastSMS);
-	
-		int startIndexPhone = fullSMS.indexOf("\"+")+2;
+
+		int startIndexPhone = fullSMS.indexOf("\"+") + 2;
 		int lastIndexPhone = fullSMS.indexOf("\",", startIndexPhone);
-	
+
 		phoneNumber = fullSMS.substring(startIndexPhone, lastIndexPhone);
-	
-		int startIndexText = fullSMS.indexOf("\n", lastIndexPhone) +1;
+
+		int startIndexText = fullSMS.indexOf("\n", lastIndexPhone) + 1;
 		smsText = fullSMS.substring(startIndexText);
-		
+
 		Serial.println("phoneNumber: " + phoneNumber);
 		Serial.println("smsText: " + smsText);
 
