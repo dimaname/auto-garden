@@ -21,23 +21,25 @@ public:
 	Valve(int _relePin, String _name) {
 		relePin = _relePin;
 		name = _name;
-		this->openValve();
+		this->openValve(false);
 	}
 
-	void openValve() {
+	void openValve(bool isNeedMessage = true) {
 		String msg = "Valve " + name + " opened ";
-		Serial.println(msg);
-		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, (char*)msg.c_str());
+		Serial.println(msg);		
 		digitalWrite(relePin, HIGH);
 		isOpened = true;
+		if (isNeedMessage)
+			showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, (char*)msg.c_str());
 	}
 
-	void closeValve() {
+	void closeValve(bool isNeedMessage = true) {
 		String msg = "Valve " + name + " closed ";
 		Serial.println(msg);
-		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, (char*)msg.c_str());
 		digitalWrite(relePin, LOW);
 		isOpened = false;
+		if (isNeedMessage)
+			showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, (char*)msg.c_str());
 	}
 
 	void toggleValve() {

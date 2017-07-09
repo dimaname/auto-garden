@@ -141,16 +141,14 @@ void loop()
 		break;
 	case 1:
 		button2Press();
+		processSmsCommand("pump on s=1");
+		//GSM.SendUSSD("#102#");	
 		break;
 	case 2:
-		button3Press();
-		//processSmsCommand("Start at SU, 5:00:00 s=1");
-		//saveTimeplanToEEPROM(0, taskWateringZone1Id);
-		//lcdContent.Mode = LcdContent::NORMAL;
+		button3Press();		
 		break;
 	case 3:
-		button4Press();
-		//GSM.SendUSSD("#102#");		
+		button4Press();		
 		break;
 	}
 
@@ -392,6 +390,11 @@ void pumpOn(bool isNeedSms = false) {
 			showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xcd\xe5\xeb\xfc\xe7\xff! \xcd\xe5\xf2 \xe2\xee\xe4\xfb");
 			return;
 		}
+		if (!valveZone1.isOpened && !valveZone2.isOpened) {
+			sendMessage("Warning! Can't start watering. All valves closed.", isNeedSms, true);
+			showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xcd\xe5\xeb\xfc\xe7\xff! \xcd\xe5\xf2 \xe2\xee\xe4\xfb");
+			return;
+		} 
 		pump_state = PUMP_STATES::WORKING;
 		lcdContent.Mode = LcdContent::WATERING;
 		digitalWrite(RELAY1_PIN, LOW);
@@ -402,14 +405,14 @@ void pumpOn(bool isNeedSms = false) {
 
 }
 void wateringZone1() {
-	valveZone1.openValve();
-	valveZone2.closeValve();
+	valveZone1.openValve(false);
+	valveZone2.closeValve(false);
 	pumpOnWithSms();
 }
 
 void wateringZone2() {
-	valveZone2.openValve();
-	valveZone1.closeValve();
+	valveZone2.openValve(false);
+	valveZone1.closeValve(false);
 	pumpOnWithSms();
 }
 
@@ -429,8 +432,8 @@ void pumpOff(bool isNeedSms = false) {
 		lcdContent.Mode = _normalOrStopMode();
 		digitalWrite(RELAY1_PIN, HIGH);
 		sendMessage("Watering finish.", isNeedSms);
-		valveZone1.openValve();
-		valveZone2.openValve();
+		valveZone1.openValve(false);
+		valveZone2.openValve(false);
 	}
 
 }

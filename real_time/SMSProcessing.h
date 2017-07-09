@@ -14,12 +14,26 @@ void processSmsCommand(String smsText) {
 	if (smsText.indexOf("HELP") != -1)
 	{
 		Serial.println("SMS command: HELP");
-		sendMessage("\r\nHELP\r\nPUMP ON\r\nPUMP OFF\r\nSTART AT [MO TU WE TH FR SA SU], [HH:MM:SS], S=[1,2]\r\nSTOP PLAN\r\nINFO", true);
+		sendMessage("\r\nHELP\r\nPUMP ON S=[1,2]\r\nPUMP OFF\r\nSTART AT [MO TU WE TH FR SA SU], [HH:MM:SS], S=[1,2]\r\nSTOP PLAN\r\nINFO", true);
 	}
 	else if (smsText.indexOf("PUMP ON") != -1 || smsText.indexOf("PUMPON") != -1)
 	{
 		Serial.println("SMS command: PUMP ON");
-		pumpOnWithSms();
+		int zonePartIndex = smsText.indexOf("S=");
+		if (zonePartIndex == -1) {
+			String message = "Fail. Not found zone parametr S. It must be S=1 or S=2. Use HELP sms for syntax tips.";
+			sendMessage((char*)message.c_str(), true);
+			return;
+		}
+		int zoneNumber = smsText.substring(zonePartIndex + 2, zonePartIndex + 3).toInt();
+
+		if (zoneNumber == 1) 
+			wateringZone1();
+	
+		if (zoneNumber == 2)
+			wateringZone2();
+		
+
 	}
 	else if (smsText.indexOf("PUMP OFF") != -1 || smsText.indexOf("PUMPOFF") != -1)
 	{
@@ -51,7 +65,7 @@ void processSmsCommand(String smsText) {
 		if (timeplan.endsWith(",")) {
 			timeplan.remove(timeplan.length() - 1);
 		}
-		
+
 		if (zoneNumber == 1) {
 			if (taskWateringZone1Id == -1) {
 				taskWateringZone1Id = schedule.addTask(timeplan, wateringZone1);
