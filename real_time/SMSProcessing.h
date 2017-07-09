@@ -104,7 +104,6 @@ void processSmsCommand(String smsText) {
 		clearTimeplanInEEPROM(1);
 		taskWateringZone1Id = -1;
 		taskWateringZone2Id = -1;
-		lcdContent.Mode = lcdContent.Mode == LcdContent::NORMAL ? LcdContent::STOP : lcdContent.Mode;
 		sendMessage("Ok. Watering timeplan cleared.", true);
 	}
 	else if (smsText.indexOf("INFO") != -1)

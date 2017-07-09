@@ -15,7 +15,7 @@
 #include "Valve.h"
 #include "Constans.h"
 
-LcdContent::MODES _normalOrStopMode();
+LcdContent::MODES _normalOrWateringMode();
 Thread threadEvery1s = Thread();
 Thread threadEvery5s = Thread();
 SimpleTimer lcdMessageTimer, lcdLightTimer, pumpOffTimer, timeout;
@@ -141,7 +141,7 @@ void loop()
 		break;
 	case 1:
 		button2Press();
-		processSmsCommand("pump on s=1");
+		//processSmsCommand("pump on s=1");
 		//GSM.SendUSSD("#102#");	
 		break;
 	case 2:
@@ -180,8 +180,8 @@ int restoreScheduleTask(int positionInMemory, void callback()) {
 void EEEPROMRecovery() {
 	EEPROMx.setMemPool(10, EEPROMSizeMega);
 	timelineStartPointerEEPROM = EEPROMx.getAddress(sizeof(byte));
-	isTimeplaneZone1InEEPROM = EEPROMx.readInt(timelineStartPointerEEPROM);
-	isTimeplaneZone2InEEPROM = EEPROMx.readInt(EEPROMx.getAddress(sizeof(byte)));
+	isTimeplaneZone1InEEPROM = EEPROMx.readByte(timelineStartPointerEEPROM);
+	isTimeplaneZone2InEEPROM = EEPROMx.readByte(timelineStartPointerEEPROM+sizeof(byte));
 	//Serial.println("isTimeplaneZone1InEEPROM               " + String(isTimeplaneZone1InEEPROM));
 
 	if (isTimeplaneZone1InEEPROM) {
@@ -376,8 +376,8 @@ void calcWater() {
 	}
 }
 
-LcdContent::MODES _normalOrStopMode() {
-	return taskWateringZone1Id == -1 && taskWateringZone2Id == -1 ? LcdContent::STOP : LcdContent::NORMAL;
+LcdContent::MODES _normalOrWateringMode() {
+	return  pump_state == PUMP_STATES::WORKING ? LcdContent::WATERING : LcdContent::NORMAL;
 }
 
 
@@ -392,7 +392,7 @@ void pumpOn(bool isNeedSms = false) {
 		}
 		if (!valveZone1.isOpened && !valveZone2.isOpened) {
 			sendMessage("Warning! Can't start watering. All valves closed.", isNeedSms, true);
-			showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xcd\xe5\xeb\xfc\xe7\xff! \xcd\xe5\xf2 \xe2\xee\xe4\xfb");
+			showLcdMessage(3000, 5000, LcdContent::MESSAGE, "\xcd\xe5\xeb\xfc\xe7\xff!","\xca\xf0\xe0\xed\xfb \xe7\xe0\xea\xf0\xfb\xf2\xfb");
 			return;
 		} 
 		pump_state = PUMP_STATES::WORKING;
@@ -400,7 +400,8 @@ void pumpOn(bool isNeedSms = false) {
 		digitalWrite(RELAY1_PIN, LOW);
 		pumpOnTimeStamp = millis();
 		pumpOffTimerId = pumpOffTimer.setTimeout((unsigned long)watering_internal * 1000L, isNeedSms ? pumpOffWithSms : pumpOffWithoutSms);
-		sendMessage("Watering start.", isNeedSms);
+		String msg = "Watering start.\r\nWatering time: " + String(watering_internal)+"sec.";
+		sendMessage( (char*)msg.c_str(), isNeedSms);
 	}
 
 }
@@ -429,7 +430,7 @@ void pumpOff(bool isNeedSms = false) {
 	if (pump_state != PUMP_STATES::WAITING) {
 		lcdLightOn(5000);
 		pump_state = PUMP_STATES::WAITING;
-		lcdContent.Mode = _normalOrStopMode();
+		lcdContent.Mode = _normalOrWateringMode();
 		digitalWrite(RELAY1_PIN, HIGH);
 		sendMessage("Watering finish.", isNeedSms);
 		valveZone1.openValve(false);
@@ -455,7 +456,7 @@ void pumpOffEmergency() {
 	if (pump_state != PUMP_STATES::WAITING) {
 		lcdLightOn(5000);
 		pump_state = PUMP_STATES::WAITING;
-		lcdContent.Mode = _normalOrStopMode();
+		lcdContent.Mode = _normalOrWateringMode();
 		digitalWrite(RELAY1_PIN, HIGH);
 		valveZone1.openValve();
 		valveZone2.openValve();
@@ -476,9 +477,6 @@ void lcdLightOff() {
 
 
 void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, char *msg0 = "", char *msg1 = "") {
-	if (lcdContent.Mode == LcdContent::WATERING) {
-		return;
-	}
 
 	lcdMessageTimer.deleteTimer(lcdMessageTimerId);
 	lcdMessageTimerId = lcdMessageTimer.setTimeout(showTimeout, hideLcdMessage);
@@ -501,7 +499,7 @@ void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, c
 void hideLcdMessage() {
 	lcdMessageTimer.deleteTimer(lcdMessageTimerId);
 	if (lcdContent.Mode == LcdContent::MESSAGE || lcdContent.Mode == LcdContent::MESSAGE_HALF)
-		lcdContent.Mode = _normalOrStopMode();
+		lcdContent.Mode = _normalOrWateringMode();
 	lcdContentBuilder();
 	lcdRunner();
 }

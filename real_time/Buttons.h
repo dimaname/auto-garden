@@ -79,20 +79,30 @@ void button1Press() {
 
 void button2Press() {
 	tone(BEEP_PIN, 4500, 200);
-	
+
 	Serial.println("switch 2 just pressed");
 }
 
 void button3Press() {
 	tone(BEEP_PIN, 4000, 200);
 	Serial.println("switch 3 just pressed");
-	valveZone1.toggleValve();
+	if (pump_state == PUMP_STATES::WAITING) {
+		valveZone1.toggleValve();
+	}
+	else {
+		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xcd\xe5\xf2! \xc8\xe4\xe5\xf2 \xef\xee\xeb\xe8\xe2 ");
+	}
 }
 
 void button4Press() {
-	tone(BEEP_PIN, 3500, 200);		
-	Serial.println("switch 4 just pressed");
-	valveZone2.toggleValve();
+	tone(BEEP_PIN, 3500, 200);
+	Serial.println("switch 4 just pressed");	
+	if (pump_state == PUMP_STATES::WAITING) {		
+		valveZone2.toggleValve();
+	}
+	else {		
+		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xcd\xe5\xf2! \xc8\xe4\xe5\xf2 \xef\xee\xeb\xe8\xe2 ");
+	}
 }
 
 
