@@ -65,8 +65,8 @@ void setup()
 
 
 	////// датчик потока
-   // pinMode(WATER_FLOW_PIN, INPUT);
-   // attachInterrupt(5, rpm, RISING);
+	pinMode(WATER_FLOW_PIN, INPUT);
+	attachInterrupt(5, rpm, RISING);
 	///////
 
 
@@ -145,10 +145,10 @@ void loop()
 		//GSM.SendUSSD("#102#");	
 		break;
 	case 2:
-		button3Press();		
+		button3Press();
 		break;
 	case 3:
-		button4Press();		
+		button4Press();
 		break;
 	}
 
@@ -181,7 +181,7 @@ void EEEPROMRecovery() {
 	EEPROMx.setMemPool(10, EEPROMSizeMega);
 	timelineStartPointerEEPROM = EEPROMx.getAddress(sizeof(byte));
 	isTimeplaneZone1InEEPROM = EEPROMx.readByte(timelineStartPointerEEPROM);
-	isTimeplaneZone2InEEPROM = EEPROMx.readByte(timelineStartPointerEEPROM+sizeof(byte));
+	isTimeplaneZone2InEEPROM = EEPROMx.readByte(timelineStartPointerEEPROM + sizeof(byte));
 	//Serial.println("isTimeplaneZone1InEEPROM               " + String(isTimeplaneZone1InEEPROM));
 
 	if (isTimeplaneZone1InEEPROM) {
@@ -251,7 +251,7 @@ void threadEvery1sAction() {
 	Serial.print(schedule.timeStr);
 	Serial.println("\tTemperature: " + String(lastDH11_Temperature) + "C, Humidity: " + String(lastDH11_Humidity) + "%");
 
-	//calcWater();
+	calcWater();
 }
 
 
@@ -338,7 +338,7 @@ void checkWaterLevel() {
 	int tmp = digitalRead(WATER_LEVEL_PIN);
 	if (waterLevel_1 != tmp) {
 		waterLevel_1 = tmp;
-		if (waterLevel_1 == HIGH) {
+		if (waterLevel_1 == LOW) {
 			tone(BEEP_PIN, 3000, 200);
 			Serial.println("WATER FULL!");
 		}
@@ -361,13 +361,21 @@ void rpm() {
 double totalWater = 0;
 unsigned long prevCallTime = 0;
 
-
+int criticalWaterCounter = 0;
 void calcWater() {
 
+	if (pump_state == PUMP_STATES::WORKING && NbTopsFan == 0) {
+		criticalWaterCounter++;
+		Serial.println("\tcriticalWaterCounter " + String(criticalWaterCounter));
+		// 5 это колличество секунд без импульсов от расходомера во время включенного насоса
+		if (criticalWaterCounter == 5) {
+			pumpOffEmergency();
+		}
+	}
 	if (NbTopsFan != 0) {
 		cli();
 		double litersPerSec = NbTopsFan / waterFlowK * (1000.0 / (millis() - prevCallTime));
-
+		criticalWaterCounter = 0;
 		Serial.println("litersPerSec: " + String(litersPerSec) + "      totalWater: " + String(totalWater));
 		NbTopsFan = 0;
 		totalWater += litersPerSec;
@@ -392,16 +400,17 @@ void pumpOn(bool isNeedSms = false) {
 		}
 		if (!valveZone1.isOpened && !valveZone2.isOpened) {
 			sendMessage("Warning! Can't start watering. All valves closed.", isNeedSms, true);
-			showLcdMessage(3000, 5000, LcdContent::MESSAGE, "\xcd\xe5\xeb\xfc\xe7\xff!","\xca\xf0\xe0\xed\xfb \xe7\xe0\xea\xf0\xfb\xf2\xfb");
+			showLcdMessage(3000, 5000, LcdContent::MESSAGE, "\xcd\xe5\xeb\xfc\xe7\xff!", "\xca\xf0\xe0\xed\xfb \xe7\xe0\xea\xf0\xfb\xf2\xfb");
 			return;
-		} 
+		}
+		criticalWaterCounter = 0;
 		pump_state = PUMP_STATES::WORKING;
 		lcdContent.Mode = LcdContent::WATERING;
 		digitalWrite(RELAY1_PIN, LOW);
 		pumpOnTimeStamp = millis();
 		pumpOffTimerId = pumpOffTimer.setTimeout((unsigned long)watering_internal * 1000L, isNeedSms ? pumpOffWithSms : pumpOffWithoutSms);
-		String msg = "Watering start.\r\nWatering time: " + String(watering_internal)+"sec.";
-		sendMessage( (char*)msg.c_str(), isNeedSms);
+		String msg = "Watering start.\r\nWatering time: " + String(watering_internal) + "sec.";
+		sendMessage((char*)msg.c_str(), isNeedSms);
 	}
 
 }
