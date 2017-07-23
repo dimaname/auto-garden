@@ -338,7 +338,7 @@ void checkWaterLevel() {
 	int tmp = digitalRead(WATER_LEVEL_PIN);
 	if (waterLevel_1 != tmp) {
 		waterLevel_1 = tmp;
-		if (waterLevel_1 == LOW) {
+		if (waterLevel_1 == HIGH) {
 			tone(BEEP_PIN, 3000, 200);
 			Serial.println("WATER FULL!");
 		}
@@ -393,7 +393,7 @@ void pumpOn(bool isNeedSms = false) {
 	if (pump_state != PUMP_STATES::WORKING) {
 		lcdLightOn(5000);
 
-		if (waterLevel_1 == LOW) {
+		if (waterLevel_1 == HIGH) {
 			sendMessage("Warning! Can't start watering. No water.", isNeedSms, true);
 			showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xcd\xe5\xeb\xfc\xe7\xff! \xcd\xe5\xf2 \xe2\xee\xe4\xfb");
 			return;
