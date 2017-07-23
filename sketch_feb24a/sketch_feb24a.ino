@@ -90,7 +90,7 @@ void rpm() {
 }
 double totalWater = 0;
 unsigned long prevCallTime = 0;
-const float waterFlowK = 52;
+float waterFlowK = 59;
 int totalImp = 0;
 void calcWater() {
 
@@ -100,9 +100,9 @@ void calcWater() {
   totalImp += NbTopsFan;
   Serial.println("litersPerSec: " + String(litersPerSec) + "      totalWater: " + String(totalWater));
   LCD16x2.setCursor(0, 0);
-  LCD16x2.print(String(litersPerSec) + "L/s " + String(totalWater)+"L    ");
+  LCD16x2.print(String(litersPerSec) + "L/s " + String(totalWater) + "L    ");
   LCD16x2.setCursor(0, 1);
-  LCD16x2.print(String(totalImp) + " imp             ");
+  LCD16x2.print("k=" + String(waterFlowK) + " " + String(totalImp) + " imp       ");
   NbTopsFan = 0;
 
   prevCallTime = millis();
@@ -145,6 +145,12 @@ void loop()
     case 0:
       totalWater = 0;
       totalImp = 0;
+      break;
+    case 1:
+      waterFlowK++;
+      break;
+    case 2:
+      waterFlowK--;
       break;
 
   }
