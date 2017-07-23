@@ -73,7 +73,7 @@ volatile int lastDH11_Temperature = 0;
 volatile int lastDH11_Humidity = 0;
 volatile int lastLightSensorState = 1;
 volatile int waterLevel_1 = 0;
-
+volatile float waterLitersForLastWatering = 0;
 #include "Valve.h"
 Valve valveZone1;
 Valve valveZone2;

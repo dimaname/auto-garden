@@ -26,7 +26,7 @@ bool isTimeplaneZone2InEEPROM = false;
 int timelineStartPointerEEPROM;
 
 unsigned long pumpOnTimeStamp = 0;
-const float waterFlowK = 52;   // подобпать коэф. на месте. (дома на 5 литрах было ~85 или 52)
+const float waterFlowK = 59;   // подобпать коэф. на месте. (дома на 5 литрах было ~85 или 52)
 
 
 
@@ -358,7 +358,7 @@ void rpm() {
 	sei();
 	Serial.println("NbTopsFan: " + String(NbTopsFan));
 }
-double totalWater = 0;
+
 unsigned long prevCallTime = 0;
 
 int criticalWaterCounter = 0;
@@ -376,9 +376,9 @@ void calcWater() {
 		cli();
 		double litersPerSec = NbTopsFan / waterFlowK * (1000.0 / (millis() - prevCallTime));
 		criticalWaterCounter = 0;
-		Serial.println("litersPerSec: " + String(litersPerSec) + "      totalWater: " + String(totalWater));
+		//Serial.println("litersPerSec: " + String(litersPerSec) + "      waterLitersForLastWatering: " + String(waterLitersForLastWatering));
 		NbTopsFan = 0;
-		totalWater += litersPerSec;
+		waterLitersForLastWatering += litersPerSec;
 		prevCallTime = millis();
 		sei();
 	}
@@ -404,6 +404,7 @@ void pumpOn(bool isNeedSms = false) {
 			return;
 		}
 		criticalWaterCounter = 0;
+		waterLitersForLastWatering = 0;
 		pump_state = PUMP_STATES::WORKING;
 		lcdContent.Mode = LcdContent::WATERING;
 		digitalWrite(RELAY1_PIN, LOW);

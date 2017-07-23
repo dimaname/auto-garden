@@ -115,9 +115,10 @@ void processSmsCommand(String smsText) {
 		message += "Pump: " + String(pump_state == PUMP_STATES::WAITING ? "stop" : "work") + "\r\n";
 		message += "Watering timeplan zone 1: " + String(taskWateringZone1Id != -1 ? "[" + String(schedule.getTaskTimeplan(taskWateringZone1Id)) + "]" : "no plan") + "\r\n";
 		message += "Watering timeplan zone 2: " + String(taskWateringZone2Id != -1 ? "[" + String(schedule.getTaskTimeplan(taskWateringZone2Id)) + "]" : "no plan") + "\r\n";
-		message += "Watering time: " + String(watering_internal) + "sec\r\n";
+		message += "Watering time: " + String(watering_internal) + " sec\r\n";
+		message += "Liters last watering: " + String(waterLitersForLastWatering) + "\r\n";		
 		message += "Sim balance: " + String(isBalanceData == true ? String(currentBalance) + " rub" : "no data") + "\r\n";
-		//ToDo сведения с расходомера
+	
 		sendMessage((char*)message.c_str(), true);
 	}
 
