@@ -192,7 +192,7 @@ private:
 	bool isReadOk(int address);
 };
 
-extern EEPROMClassEx EEPROM;
+extern EEPROMClassEx EEPROMx;
 
 #endif
 

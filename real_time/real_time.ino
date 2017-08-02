@@ -12,9 +12,10 @@
 #include <functional>
 #include <Bounce2.h>
 #include <SimpleTimer.h>
+#include "Valve.h"
 #include "Constans.h"
 
-LcdContent::MODES _normalOrStopMode();
+LcdContent::MODES _normalOrWateringMode();
 Thread threadEvery1s = Thread();
 Thread threadEvery5s = Thread();
 SimpleTimer lcdMessageTimer, lcdLightTimer, pumpOffTimer, timeout;
@@ -25,7 +26,7 @@ bool isTimeplaneZone2InEEPROM = false;
 int timelineStartPointerEEPROM;
 
 unsigned long pumpOnTimeStamp = 0;
-const float waterFlowK = 52;   // подобпать коэф. на месте. (дома на 5 литрах было ~85 или 52)
+const float waterFlowK = 59;   // подобпать коэф. на месте. (дома на 5 литрах было ~85 или 52)
 
 
 
@@ -51,6 +52,9 @@ void setup()
 	digitalWrite(RELAY4_PIN, HIGH);
 	pinMode(RELAY4_PIN, OUTPUT);
 
+	valveZone1 = Valve(RELAY3_PIN, "zone1");
+	valveZone2 = Valve(RELAY4_PIN, "zone2");
+
 	pinMode(WATER_LEVEL_PIN, INPUT_PULLUP);
 	pinMode(LIGHT_SENSOR, INPUT);
 	pinMode(LCD_LIGHT_RED, OUTPUT);
@@ -61,8 +65,8 @@ void setup()
 
 
 	////// датчик потока
-   // pinMode(WATER_FLOW_PIN, INPUT);
-   // attachInterrupt(5, rpm, RISING);
+	pinMode(WATER_FLOW_PIN, INPUT);
+	attachInterrupt(5, rpm, RISING);
 	///////
 
 
@@ -137,43 +141,55 @@ void loop()
 		break;
 	case 1:
 		button2Press();
+		//processSmsCommand("pump on s=1");
+		//GSM.SendUSSD("#102#");	
 		break;
 	case 2:
 		button3Press();
-		//taskWateringZone1Id = schedule.addTask("SU, 18:19:00", pumpOnWithoutSms);
-		//saveTimeplanToEEPROM(0, taskWateringZone1Id);
-		//lcdContent.Mode = LcdContent::NORMAL;
 		break;
 	case 3:
 		button4Press();
-		//GSM.SendUSSD("#102#");		
 		break;
 	}
 
 
 }
 
-void EEEPROMRecovery() {	
+int restoreScheduleTask(int positionInMemory, void callback()) {
+	int structSize = sizeof(int) * 11;
+	int structAddress = timelineStartPointerEEPROM + sizeof(byte) * 2 + structSize * positionInMemory;
+	int type = EEPROMx.readInt(structAddress);
+	structAddress += sizeof(int);
+	vector<int> daysOfWeekVector;
+	for (int i = 0; i < 7; i++) {
+		int day = EEPROMx.readInt(structAddress);
+		structAddress += sizeof(int);
+		if (day > 0)
+			daysOfWeekVector.push_back(day);
+	}
+	int hours = EEPROMx.readInt(structAddress);
+	structAddress += sizeof(int);
+	int minunes = EEPROMx.readInt(structAddress);
+	structAddress += sizeof(int);
+	int seconds = EEPROMx.readInt(structAddress);
+
+	schedule.items.push_back(Schedule::ScheduleItem((Schedule::TYPE)type, daysOfWeekVector, hours, minunes, seconds, callback));
+	return schedule.items.size() - 1;
+};
+
+void EEEPROMRecovery() {
 	EEPROMx.setMemPool(10, EEPROMSizeMega);
 	timelineStartPointerEEPROM = EEPROMx.getAddress(sizeof(byte));
-	isTimeplaneZone1InEEPROM = EEPROMx.readInt(timelineStartPointerEEPROM);
-	isTimeplaneZone2InEEPROM = EEPROMx.readInt(EEPROMx.getAddress(sizeof(byte)));	
+	isTimeplaneZone1InEEPROM = EEPROMx.readByte(timelineStartPointerEEPROM);
+	isTimeplaneZone2InEEPROM = EEPROMx.readByte(timelineStartPointerEEPROM + sizeof(byte));
 	//Serial.println("isTimeplaneZone1InEEPROM               " + String(isTimeplaneZone1InEEPROM));
 
 	if (isTimeplaneZone1InEEPROM) {
-		int type = EEPROMx.readInt(EEPROMx.getAddress(sizeof(int)));		
-		vector<int> daysOfWeekVector;
-		for (int i = 0; i < 7; i++) {
-			int day = EEPROMx.readInt(EEPROMx.getAddress(sizeof(int)));			
-			if(day > 0)
-				daysOfWeekVector.push_back(day);
-		}
-		int hours = EEPROMx.readInt(EEPROMx.getAddress(sizeof(int)));
-		int minunes = EEPROMx.readInt(EEPROMx.getAddress(sizeof(int)));
-		int seconds = EEPROMx.readInt(EEPROMx.getAddress(sizeof(int)));
+		taskWateringZone1Id = restoreScheduleTask(0, wateringZone1);
+	}
 
-		schedule.items.push_back(Schedule::ScheduleItem((Schedule::TYPE)type, daysOfWeekVector, hours, minunes, seconds, pumpOnWithSms));
-		taskWateringZone1Id = schedule.items.size() - 1;
+	if (isTimeplaneZone2InEEPROM) {
+		taskWateringZone2Id = restoreScheduleTask(1, wateringZone2);
 	}
 
 }
@@ -183,7 +199,7 @@ void saveTimeplanToEEPROM(int positionOrderInMemory, int taskId) {
 	Serial.println("saveTaskToEEPROM");
 	Serial.println("positionOrderInMemory" + String(positionOrderInMemory));
 	if (positionOrderInMemory > 1) {
-		Serial.println("FAIL positionOrderInMemory is max 1" );
+		Serial.println("FAIL positionOrderInMemory is max 1");
 		return;
 	}
 
@@ -192,15 +208,15 @@ void saveTimeplanToEEPROM(int positionOrderInMemory, int taskId) {
 	int structSize = sizeof(int) * 11;
 	// стартовая позиция в памяти + размер флагов(есть ли расписание) + размер сохраняемой структуры 
 	int structAddress = timelineStartPointerEEPROM + sizeof(byte) * 2 + structSize * positionOrderInMemory;
-	
+
 	// пишем признак того есть ли таймплан для зоны 1 или 2
 	EEPROMx.writeByte(timelineStartPointerEEPROM + sizeof(byte)*positionOrderInMemory, 1);
 
 	EEPROMx.writeInt(structAddress, task.type);
 	structAddress += sizeof(int);
-	for (int i = 0; i < 7; i++) {		
+	for (int i = 0; i < 7; i++) {
 		EEPROMx.writeInt(structAddress, i < task.weekdays.size() ? task.weekdays[i] : -1);
-		structAddress += sizeof(int);			
+		structAddress += sizeof(int);
 	}
 	EEPROMx.writeInt(structAddress, task.hour);
 	structAddress += sizeof(int);
@@ -214,13 +230,13 @@ void clearTimeplanInEEPROM(int positionOrderInMemory) {
 		Serial.println("FAIL positionOrderInMemory is max 1");
 		return;
 	}
-	int structSize = sizeof(int) * 11;				
+	int structSize = sizeof(int) * 11;
 	int structAddress = timelineStartPointerEEPROM + sizeof(byte) * 2 + structSize * positionOrderInMemory;
 	EEPROMx.writeByte(timelineStartPointerEEPROM + sizeof(byte)*positionOrderInMemory, 0);
 	for (int i = structAddress; i < structAddress + structSize; i++) {
-		EEPROMx.writeByte(i, 255);			
+		EEPROMx.writeByte(i, 255);
 	}
-		
+
 }
 
 void threadEvery1sAction() {
@@ -235,7 +251,7 @@ void threadEvery1sAction() {
 	Serial.print(schedule.timeStr);
 	Serial.println("\tTemperature: " + String(lastDH11_Temperature) + "C, Humidity: " + String(lastDH11_Humidity) + "%");
 
-	//calcWater();
+	calcWater();
 }
 
 
@@ -264,7 +280,7 @@ void timer1_action() {
 int counter = 0;
 int lcd5timesUpdate = true;
 void lcdContentBuilder() {
-	counter++; 
+	counter++;
 	if (counter == 5) {
 		lcd5timesUpdate = !lcd5timesUpdate;
 		counter = 0;
@@ -303,12 +319,12 @@ void lcdContentBuilder() {
 	case  LcdContent::NORMAL:
 		_first = String(schedule.timeStr) + " " + addSpaceT + String(lastDH11_Temperature) + "\xb0 " + addSpaceH + String(lastDH11_Humidity) + "%";
 		if (lcd5timesUpdate) {
-			_second = "\xef\xf3\xf1\xea \x91S1 " + (taskWateringZone1Id == -1 ? "no plan" :distanceFormat(schedule.timeLeftFor(taskWateringZone1Id)) );
+			_second = "\xef\xf3\xf1\xea \x91S1 " + (taskWateringZone1Id == -1 ? "no plan" : distanceFormat(schedule.timeLeftFor(taskWateringZone1Id)));
 		}
 		else {
 			_second = "\xef\xf3\xf1\xea \x90S2 " + (taskWateringZone2Id == -1 ? "no plan" : distanceFormat(schedule.timeLeftFor(taskWateringZone2Id)));
 		}
-	
+
 		break;
 
 	}
@@ -342,26 +358,34 @@ void rpm() {
 	sei();
 	Serial.println("NbTopsFan: " + String(NbTopsFan));
 }
-double totalWater = 0;
+
 unsigned long prevCallTime = 0;
 
-
+int criticalWaterCounter = 0;
 void calcWater() {
 
+	if (pump_state == PUMP_STATES::WORKING && NbTopsFan == 0) {
+		criticalWaterCounter++;
+		Serial.println("\tcriticalWaterCounter " + String(criticalWaterCounter));
+		// 5 это колличество секунд без импульсов от расходомера во время включенного насоса
+		if (criticalWaterCounter == 5) {
+			pumpOffEmergency();
+		}
+	}
 	if (NbTopsFan != 0) {
 		cli();
 		double litersPerSec = NbTopsFan / waterFlowK * (1000.0 / (millis() - prevCallTime));
-
-		Serial.println("litersPerSec: " + String(litersPerSec) + "      totalWater: " + String(totalWater));
+		criticalWaterCounter = 0;
+		//Serial.println("litersPerSec: " + String(litersPerSec) + "      waterLitersForLastWatering: " + String(waterLitersForLastWatering));
 		NbTopsFan = 0;
-		totalWater += litersPerSec;
+		waterLitersForLastWatering += litersPerSec;
 		prevCallTime = millis();
 		sei();
 	}
 }
 
-LcdContent::MODES _normalOrStopMode() {
-	return taskWateringZone1Id == -1 && taskWateringZone2Id == -1 ? LcdContent::STOP : LcdContent::NORMAL;
+LcdContent::MODES _normalOrWateringMode() {
+	return  pump_state == PUMP_STATES::WORKING ? LcdContent::WATERING : LcdContent::NORMAL;
 }
 
 
@@ -369,19 +393,38 @@ void pumpOn(bool isNeedSms = false) {
 	if (pump_state != PUMP_STATES::WORKING) {
 		lcdLightOn(5000);
 
-		if (waterLevel_1 == LOW) {
+		if (waterLevel_1 == HIGH) {
 			sendMessage("Warning! Can't start watering. No water.", isNeedSms, true);
 			showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xcd\xe5\xeb\xfc\xe7\xff! \xcd\xe5\xf2 \xe2\xee\xe4\xfb");
 			return;
 		}
+		if (!valveZone1.isOpened && !valveZone2.isOpened) {
+			sendMessage("Warning! Can't start watering. All valves closed.", isNeedSms, true);
+			showLcdMessage(3000, 5000, LcdContent::MESSAGE, "\xcd\xe5\xeb\xfc\xe7\xff!", "\xca\xf0\xe0\xed\xfb \xe7\xe0\xea\xf0\xfb\xf2\xfb");
+			return;
+		}
+		criticalWaterCounter = 0;
+		waterLitersForLastWatering = 0;
 		pump_state = PUMP_STATES::WORKING;
 		lcdContent.Mode = LcdContent::WATERING;
 		digitalWrite(RELAY1_PIN, LOW);
 		pumpOnTimeStamp = millis();
 		pumpOffTimerId = pumpOffTimer.setTimeout((unsigned long)watering_internal * 1000L, isNeedSms ? pumpOffWithSms : pumpOffWithoutSms);
-		sendMessage("Watering start.", isNeedSms);
+		String msg = "Watering start.\r\nWatering time: " + String(watering_internal) + "sec.";
+		sendMessage((char*)msg.c_str(), isNeedSms);
 	}
 
+}
+void wateringZone1() {
+	valveZone1.openValve(false);
+	valveZone2.closeValve(false);
+	pumpOnWithSms();
+}
+
+void wateringZone2() {
+	valveZone2.openValve(false);
+	valveZone1.closeValve(false);
+	pumpOnWithSms();
 }
 
 void pumpOnWithSms() {
@@ -397,9 +440,11 @@ void pumpOff(bool isNeedSms = false) {
 	if (pump_state != PUMP_STATES::WAITING) {
 		lcdLightOn(5000);
 		pump_state = PUMP_STATES::WAITING;
-		lcdContent.Mode = _normalOrStopMode();
+		lcdContent.Mode = _normalOrWateringMode();
 		digitalWrite(RELAY1_PIN, HIGH);
 		sendMessage("Watering finish.", isNeedSms);
+		valveZone1.openValve(false);
+		valveZone2.openValve(false);
 	}
 
 }
@@ -421,8 +466,10 @@ void pumpOffEmergency() {
 	if (pump_state != PUMP_STATES::WAITING) {
 		lcdLightOn(5000);
 		pump_state = PUMP_STATES::WAITING;
-		lcdContent.Mode = _normalOrStopMode();
+		lcdContent.Mode = _normalOrWateringMode();
 		digitalWrite(RELAY1_PIN, HIGH);
+		valveZone1.openValve();
+		valveZone2.openValve();
 		timeout.setTimeout(1000, sendMessageEmergencyPumpOff);
 		showLcdMessage(3000, 5000, LcdContent::MESSAGE_HALF, "\xd1\xf2\xee\xef! \xcd\xe5\xf2 \xe2\xee\xe4\xfb!");
 	}
@@ -440,9 +487,6 @@ void lcdLightOff() {
 
 
 void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, char *msg0 = "", char *msg1 = "") {
-	if (lcdContent.Mode == LcdContent::WATERING) {
-		return;
-	}
 
 	lcdMessageTimer.deleteTimer(lcdMessageTimerId);
 	lcdMessageTimerId = lcdMessageTimer.setTimeout(showTimeout, hideLcdMessage);
@@ -465,7 +509,7 @@ void showLcdMessage(int showTimeout, int lightTimeout, LcdContent::MODES mode, c
 void hideLcdMessage() {
 	lcdMessageTimer.deleteTimer(lcdMessageTimerId);
 	if (lcdContent.Mode == LcdContent::MESSAGE || lcdContent.Mode == LcdContent::MESSAGE_HALF)
-		lcdContent.Mode = _normalOrStopMode();
+		lcdContent.Mode = _normalOrWateringMode();
 	lcdContentBuilder();
 	lcdRunner();
 }
